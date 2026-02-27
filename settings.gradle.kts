@@ -16,4 +16,8 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "FeishuSyncApp"
+rootProject.name = "LarkSync"
+
+include(":shared")
+include(":composeApp")
+include(":server")

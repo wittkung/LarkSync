@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
+    kotlin("plugin.serialization")
 }
 
 kotlin {
@@ -54,7 +55,7 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
-            implementation(projects.shared)
+            implementation(project(":shared"))
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -62,6 +63,11 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+            implementation("io.ktor:ktor-client-core:3.3.3")
+            implementation("io.ktor:ktor-client-cio:3.3.3")
+            implementation("io.ktor:ktor-client-content-negotiation:3.3.3")
+            implementation("io.ktor:ktor-serialization-kotlinx-json:3.3.3")
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
         }
     }
 }
