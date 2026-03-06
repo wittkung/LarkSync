@@ -115,6 +115,13 @@ export class SyncEngine {
                 progress.report({ message: `准备同步 ${nodes.length} 个节点...` });
                 this.fileManager.setNodes(nodes);
                 await this.syncNodes(nodes, progress);
+
+                // 清理云端已删除的本地孤儿文件
+                const deleteOrphans = config.get<boolean>('deleteOrphanFiles') ?? false;
+                if (deleteOrphans) {
+                    progress.report({ message: '正在清理云端已删除的本地文件...' });
+                    await this.cleanOrphanFiles(nodes);
+                }
             });
 
             logger.info('同步完成！');
@@ -212,6 +219,29 @@ export class SyncEngine {
 
         await Promise.all(tasks);
         await this.stateManager.saveState();
+    }
+
+    /**
+     * 清理云端已删除但本地仍存在的孤儿 Markdown 文件
+     */
+    private async cleanOrphanFiles(nodes: WikiNode[]) {
+        const expectedUris = this.fileManager.getExpectedDocUris(nodes);
+        const localFiles = await this.fileManager.listLocalMarkdownFiles();
+
+        let deletedCount = 0;
+        for (const localUri of localFiles) {
+            if (!expectedUris.has(localUri.toString())) {
+                logger.info(`删除孤儿文件: ${localUri.fsPath}`);
+                await this.fileManager.deleteFile(localUri);
+                deletedCount++;
+            }
+        }
+
+        if (deletedCount > 0) {
+            logger.info(`共清理 ${deletedCount} 个云端已删除的本地文件。`);
+        } else {
+            logger.info('无需清理孤儿文件。');
+        }
     }
 
     /**

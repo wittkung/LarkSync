@@ -42,6 +42,7 @@ const vscode = __importStar(require("vscode"));
 const constants_1 = require("../utils/constants");
 const errors_1 = require("../utils/errors");
 const logger_1 = require("../logger");
+const rateLimiter_1 = require("../utils/rateLimiter");
 class FeishuClient {
     /**
      * 设置用户级别的 access_token（由 OAuthManager 在登录后调用）
@@ -120,32 +121,18 @@ class FeishuClient {
         }
     }
     /**
-     * Standard Request wrapper with automatic token injection and retries.
+     * 标准请求封装 — 自动注入 Token + 全局限流 + 指数退避重试
      */
-    async request(config, retries = constants_1.CONSTANTS.MAX_API_RETRIES) {
-        let lastError;
-        for (let i = 0; i <= retries; i++) {
-            try {
-                const token = await this.getTenantAccessToken();
-                const headers = { ...config.headers, Authorization: `Bearer ${token}` };
-                const response = await this.client.request({
-                    ...config,
-                    headers
-                });
-                return response.data.data;
-            }
-            catch (error) {
-                lastError = error;
-                if (error instanceof errors_1.RateLimitError && i < retries) {
-                    const backoff = constants_1.CONSTANTS.RETRY_BASE_DELAY_MS * Math.pow(1.5, i) + Math.random() * 500;
-                    logger_1.logger.warn(`Rate limit hit [${config.url}]. Retrying in ${Math.round(backoff)}ms...`);
-                    await new Promise(res => setTimeout(res, backoff));
-                    continue;
-                }
-                throw error;
-            }
-        }
-        throw lastError;
+    async request(config) {
+        return rateLimiter_1.globalRateLimiter.executeWithRetry(async () => {
+            const token = await this.getActiveToken();
+            const headers = { ...config.headers, Authorization: `Bearer ${token}` };
+            const response = await this.client.request({
+                ...config,
+                headers
+            });
+            return response.data.data;
+        }, (err) => err instanceof errors_1.RateLimitError || err.response?.status === 429 || err.response?.status >= 500);
     }
     /**
      * Fetches child nodes of a given parent node or space.

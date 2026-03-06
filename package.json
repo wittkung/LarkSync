@@ -2,7 +2,7 @@
     "name": "larksync",
     "displayName": "LarkSync",
     "description": "Sync Feishu Knowledge Base to local Markdown automatically",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "publisher": "kevintung",
     "repository": {
         "type": "git",
@@ -112,6 +112,11 @@
                     "type": "number",
                     "default": 5,
                     "description": "Interval in minutes to poll for cloud updates (0 to disable)"
+                },
+                "larksync.deleteOrphanFiles": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Automatically delete local files that no longer exist in the cloud knowledge base"
                 },
                 "larksync.tableRenderMode": {
                     "type": "string",

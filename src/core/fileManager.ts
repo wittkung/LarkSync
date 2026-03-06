@@ -95,6 +95,60 @@ export class FileManager {
         await vscode.workspace.fs.writeFile(uri, data);
     }
 
+    /**
+     * 删除文件
+     */
+    public async deleteFile(uri: vscode.Uri): Promise<void> {
+        try {
+            await vscode.workspace.fs.delete(uri, { recursive: false });
+        } catch {
+            // 文件可能已不存在
+        }
+    }
+
+    /**
+     * 递归列出本地同步目录下所有 .md 文件的 URI
+     */
+    public async listLocalMarkdownFiles(): Promise<vscode.Uri[]> {
+        const results: vscode.Uri[] = [];
+        await this.walkDirectory(this.rootUri, results);
+        return results;
+    }
+
+    /**
+     * 递归遍历目录收集 .md 文件
+     */
+    private async walkDirectory(dirUri: vscode.Uri, results: vscode.Uri[]): Promise<void> {
+        try {
+            const entries = await vscode.workspace.fs.readDirectory(dirUri);
+            for (const [name, type] of entries) {
+                const childUri = vscode.Uri.joinPath(dirUri, name);
+                if (type === vscode.FileType.Directory) {
+                    // 跳过 assets 和隐藏目录
+                    if (name === 'assets' || name.startsWith('.')) continue;
+                    await this.walkDirectory(childUri, results);
+                } else if (type === vscode.FileType.File && name.endsWith('.md')) {
+                    results.push(childUri);
+                }
+            }
+        } catch {
+            // 目录不存在或无权限
+        }
+    }
+
+    /**
+     * 获取所有文档的预期本地 URI 集合
+     */
+    public getExpectedDocUris(docs: WikiNode[]): Set<string> {
+        const uriSet = new Set<string>();
+        for (const doc of docs) {
+            if (doc.obj_type === 'doc' || doc.obj_type === 'docx') {
+                uriSet.add(this.getDocLocalUri(doc).toString());
+            }
+        }
+        return uriSet;
+    }
+
     // --- 路径计算辅助方法 ---
 
     private buildPathParts(node: WikiNode): string[] {

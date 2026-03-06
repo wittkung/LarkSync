@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { CONSTANTS } from '../utils/constants';
 import { FeishuApiError, FeishuAuthError, RateLimitError } from '../utils/errors';
 import { logger } from '../logger';
+import { globalRateLimiter } from '../utils/rateLimiter';
 import {
     WikiNode,
     WikiNodeListResponse,
@@ -106,14 +107,12 @@ export class FeishuClient {
     }
 
     /**
-     * Standard Request wrapper with automatic token injection and retries.
+     * 标准请求封装 — 自动注入 Token + 全局限流 + 指数退避重试
      */
-    public async request<T = any>(config: AxiosRequestConfig, retries = CONSTANTS.MAX_API_RETRIES): Promise<T> {
-        let lastError: any;
-
-        for (let i = 0; i <= retries; i++) {
-            try {
-                const token = await this.getTenantAccessToken();
+    public async request<T = any>(config: AxiosRequestConfig): Promise<T> {
+        return globalRateLimiter.executeWithRetry(
+            async () => {
+                const token = await this.getActiveToken();
                 const headers = { ...config.headers, Authorization: `Bearer ${token}` };
 
                 const response = await this.client.request<FeishuBaseResponse<T>>({
@@ -122,18 +121,9 @@ export class FeishuClient {
                 });
 
                 return response.data.data;
-            } catch (error: any) {
-                lastError = error;
-                if (error instanceof RateLimitError && i < retries) {
-                    const backoff = CONSTANTS.RETRY_BASE_DELAY_MS * Math.pow(1.5, i) + Math.random() * 500;
-                    logger.warn(`Rate limit hit [${config.url}]. Retrying in ${Math.round(backoff)}ms...`);
-                    await new Promise(res => setTimeout(res, backoff));
-                    continue;
-                }
-                throw error;
-            }
-        }
-        throw lastError;
+            },
+            (err) => err instanceof RateLimitError || err.response?.status === 429 || err.response?.status >= 500
+        );
     }
 
     /**

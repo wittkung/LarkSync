@@ -1,0 +1,30 @@
+# 开发源文件
+src/**
+!src/**/*.js
+
+# TypeScript 配置与源映射
+tsconfig.json
+**/*.ts
+**/*.map
+
+# 开发工具
+.vscode/**
+.github/**
+.git/**
+
+# 构建脚本与配置
+build.ps1
+build.sh
+.eslintrc*
+.prettierrc*
+
+# 依赖与缓存
+node_modules/**
+
+# 测试
+**/__tests__/**
+**/test/**
+
+# 杂项
+.gitignore
+*.vsix
