@@ -39,16 +39,21 @@ const vscode = __importStar(require("vscode"));
 const syncEngine_1 = require("./syncEngine");
 const logger_1 = require("./logger");
 const treeProvider_1 = require("./treeProvider");
+const syncFileDecorationProvider_1 = require("./ui/syncFileDecorationProvider");
 let syncEngine;
 let statusBarItem;
 let pollingTimer = null;
 let treeProvider;
+let decorationProvider;
 function activate(context) {
     logger_1.logger.info('LarkSync extension is now active!');
     syncEngine = new syncEngine_1.SyncEngine();
-    // Register Sidebar
+    // 注册侧边栏知识树
     treeProvider = new treeProvider_1.SyncTreeProvider(syncEngine);
     context.subscriptions.push(vscode.window.registerTreeDataProvider('larksyncSidebar', treeProvider));
+    // 注册文件装饰器（A/M/D 差异状态徽标）
+    decorationProvider = new syncFileDecorationProvider_1.SyncFileDecorationProvider();
+    context.subscriptions.push(vscode.window.registerFileDecorationProvider(decorationProvider));
     // Create Status Bar Item
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     statusBarItem.command = 'larksync.startSync';

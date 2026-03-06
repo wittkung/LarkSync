@@ -1,4 +1,14 @@
 "use strict";
+/**
+ * syncEngine.ts
+ * 同步引擎 — 编排文档拉取、AST 转换、文件写入和媒体下载
+ *
+ * 架构（Plan A）：
+ * 1. 主线程从飞书 API 拉取文档 Block 数据
+ * 2. 将 Block 数据发送给 Worker 线程做 AST→Markdown 转换
+ * 3. 主线程通过 vscode.workspace.fs 写入 Markdown 文件
+ * 4. 主线程通过 MediaManager 下载媒体资源
+ */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -39,193 +49,229 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SyncEngine = void 0;
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
-const fs = __importStar(require("fs"));
 const worker_threads_1 = require("worker_threads");
 const p_limit_1 = __importDefault(require("p-limit"));
-const feishuTree_1 = require("./feishuTree");
-const feishuApi_1 = require("./feishuApi");
-const feishuMeta_1 = require("./feishuMeta");
+const feishuClient_1 = require("./api/feishuClient");
+const stateManager_1 = require("./core/stateManager");
+const fileManager_1 = require("./core/fileManager");
+const mediaManager_1 = require("./core/mediaManager");
+const constants_1 = require("./utils/constants");
 const logger_1 = require("./logger");
+const errors_1 = require("./utils/errors");
+const fileWriteStrategy_1 = require("./utils/fileWriteStrategy");
 class SyncEngine {
     constructor() {
         this.isSyncing = false;
-        this.statePath = '';
     }
     get syncActive() {
         return this.isSyncing;
     }
     async startSync(silent = false, forceFullTree = false) {
-        logger_1.logger.info('Sync triggered.');
+        logger_1.logger.info('同步触发。');
         if (this.isSyncing) {
-            logger_1.logger.warn('Sync is already in progress.');
-            if (!silent)
-                vscode.window.showWarningMessage('LarkSync: Sync is already in progress.');
+            logger_1.logger.warn('同步正在进行中。');
+            if (!silent) {
+                vscode.window.showWarningMessage('LarkSync: 同步正在进行中。');
+            }
             return;
         }
         const config = vscode.workspace.getConfiguration('larksync');
         const spaceId = config.get('spaceId');
         if (!spaceId) {
-            logger_1.logger.error('Sync aborted: Space ID is not configured in settings.');
-            if (!silent)
-                vscode.window.showErrorMessage('LarkSync: Space ID is not configured. Please set it in VS Code settings.');
+            logger_1.logger.error('同步中止: 未配置 Space ID。');
+            if (!silent) {
+                vscode.window.showErrorMessage('LarkSync: 请在设置中配置 Space ID。');
+            }
             return;
         }
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) {
-            logger_1.logger.error('Sync aborted: No VS Code workspace folder is currently open.');
-            if (!silent)
-                vscode.window.showErrorMessage('LarkSync: Please open a workspace folder to sync documents.');
+            logger_1.logger.error('同步中止: 未打开工作区目录。');
+            if (!silent) {
+                vscode.window.showErrorMessage('LarkSync: 请打开一个工作区目录。');
+            }
             return;
         }
         this.isSyncing = true;
-        const syncDirName = config.get('syncDirectory') || 'LarkDocs';
-        const rootPath = path.join(workspaceFolders[0].uri.fsPath, syncDirName);
-        logger_1.logger.info(`Starting sync for Space ID: ${spaceId} into Workspace: ${rootPath}`);
-        // Git-friendly persistent state path inside root folder
-        this.statePath = path.join(rootPath, '.larksync_state.json');
-        const treeCachePath = path.join(rootPath, '.larksync_tree.json');
-        if (!fs.existsSync(rootPath)) {
-            logger_1.logger.info(`Creating root sync directory: ${rootPath}`);
-            fs.mkdirSync(rootPath, { recursive: true });
-        }
+        const syncDirName = config.get('syncDirectory') || constants_1.CONSTANTS.DEFAULT_SYNC_DIR;
+        const rootUri = vscode.Uri.joinPath(workspaceFolders[0].uri, syncDirName);
+        logger_1.logger.info(`开始同步 Space: ${spaceId} → ${rootUri.fsPath}`);
+        // 初始化各管理器
+        this.stateManager = new stateManager_1.StateManager(rootUri);
+        this.fileManager = new fileManager_1.FileManager(rootUri);
+        this.mediaManager = new mediaManager_1.MediaManager(rootUri);
+        await this.fileManager.ensureRootDirectory();
+        await this.stateManager.loadState();
+        await this.mediaManager.initialize();
+        const treeCacheUri = vscode.Uri.joinPath(rootUri, constants_1.CONSTANTS.TREE_CACHE_FILE_NAME);
         try {
-            logger_1.logger.info('Initializing VS Code Progress Window...');
+            logger_1.logger.info('初始化进度窗口...');
             await vscode.window.withProgress({
                 location: silent ? vscode.ProgressLocation.Window : vscode.ProgressLocation.Notification,
                 title: "LarkSync",
                 cancellable: false
             }, async (progress) => {
                 let nodes = [];
-                if (!forceFullTree && fs.existsSync(treeCachePath)) {
+                // 尝试从本地缓存加载目录树
+                if (!forceFullTree) {
                     try {
-                        nodes = JSON.parse(fs.readFileSync(treeCachePath, 'utf-8'));
-                        logger_1.logger.info(`Loaded ${nodes.length} nodes from local tree cache. Skipping remote fetch.`);
-                        progress.report({ message: "Loaded directory tree from cache..." });
+                        const cacheData = await vscode.workspace.fs.readFile(treeCacheUri);
+                        nodes = JSON.parse(Buffer.from(cacheData).toString('utf-8'));
+                        logger_1.logger.info(`从缓存加载了 ${nodes.length} 个节点。`);
+                        progress.report({ message: "从缓存加载目录树..." });
                     }
-                    catch (e) {
-                        logger_1.logger.warn(`Failed to parse tree cache: ${e.message}. Forcing full tree fetch.`);
-                        forceFullTree = true;
+                    catch {
+                        logger_1.logger.info('无本地缓存，将从飞书拉取。');
                     }
                 }
+                // 从飞书拉取目录树
                 if (nodes.length === 0 || forceFullTree) {
-                    logger_1.logger.info('Progress window activated. Fetching structural tree from Feishu (this may take a while)...');
-                    progress.report({ message: "Fetching directory tree from Feishu..." });
-                    nodes = await (0, feishuTree_1.fetchAllWikiNodesRecursive)(spaceId);
-                    fs.writeFileSync(treeCachePath, JSON.stringify(nodes, null, 2), 'utf-8');
-                    logger_1.logger.info(`Saved ${nodes.length} nodes to local tree cache.`);
+                    logger_1.logger.info('从飞书拉取目录树...');
+                    progress.report({ message: "正在从飞书拉取目录树..." });
+                    nodes = await feishuClient_1.feishuClient.fetchAllWikiNodesRecursive(spaceId);
+                    // 缓存目录树
+                    const treeCacheContent = Buffer.from(JSON.stringify(nodes, null, 2), 'utf-8');
+                    await vscode.workspace.fs.writeFile(treeCacheUri, treeCacheContent);
+                    logger_1.logger.info(`已缓存 ${nodes.length} 个节点。`);
                 }
-                progress.report({ message: `Preparing synchronized state for ${nodes.length} nodes...` });
-                await this.syncNodes(nodes, rootPath, progress);
+                progress.report({ message: `准备同步 ${nodes.length} 个节点...` });
+                this.fileManager.setNodes(nodes);
+                await this.syncNodes(nodes, progress);
             });
-            logger_1.logger.info('Sync completed successfully!');
+            logger_1.logger.info('同步完成！');
             vscode.commands.executeCommand('larksync.refreshSidebar');
-            if (!silent)
-                vscode.window.showInformationMessage('LarkSync: Sync completed successfully!');
+            if (!silent) {
+                vscode.window.showInformationMessage('LarkSync: 同步完成！');
+            }
         }
         catch (error) {
-            logger_1.logger.error(`Critical Sync Error: ${error.message}`, error);
-            if (!silent)
-                vscode.window.showErrorMessage(`LarkSync Error: ${error.message}`);
+            logger_1.logger.error(`同步错误: ${error.message}`, error);
+            if (!silent) {
+                vscode.window.showErrorMessage(`LarkSync 错误: ${error.message}`);
+            }
         }
         finally {
             this.isSyncing = false;
         }
     }
-    async syncNodes(nodes, rootPath, progress) {
-        let syncState = {};
-        if (fs.existsSync(this.statePath)) {
-            syncState = JSON.parse(fs.readFileSync(this.statePath, 'utf-8'));
-        }
-        const limit = (0, p_limit_1.default)(3); // Lowered from 15 to 3 to avoid triggering Feishu's 99991400 API Frequency Limit
-        this.buildLocalDirectories(nodes, rootPath);
+    /**
+     * 同步所有文档节点
+     */
+    async syncNodes(nodes, progress) {
+        const limit = (0, p_limit_1.default)(constants_1.CONSTANTS.CONCURRENCY_LIMIT);
+        // 构建本地目录结构
+        await this.fileManager.buildLocalDirectories(nodes);
+        // 筛选文档节点
         const docs = nodes.filter(n => n.obj_type === 'doc' || n.obj_type === 'docx');
         const incrementValue = 100 / (docs.length || 1);
-        const token = await (0, feishuApi_1.getTenantAccessToken)();
-        // 1. Fetch Cloud Metas for real edit_times
-        progress.report({ message: `Verifying cloud modifications for ${docs.length} docs...` });
-        logger_1.logger.info('Fetching Drive Metadatas for incremental comparison...');
+        // 批量获取云端元数据（用于增量比对）
+        progress.report({ message: `正在校验 ${docs.length} 篇文档的云端状态...` });
+        logger_1.logger.info('批量获取文档元数据...');
         const metaTokens = docs.map(d => ({ token: d.obj_token, type: d.obj_type, title: d.title }));
-        const cloudMetas = await (0, feishuMeta_1.fetchDocsMetadata)(metaTokens);
+        const cloudMetas = await feishuClient_1.feishuClient.fetchDocsMetadata(metaTokens);
+        // 并发处理每篇文档
         const tasks = docs.map(doc => limit(async () => {
-            progress.report({ message: `Syncing: ${doc.title}`, increment: incrementValue });
-            const targetPath = this.getDocLocalPath(doc, rootPath, nodes);
-            const docState = syncState[doc.obj_token];
-            const fileExists = fs.existsSync(targetPath);
+            progress.report({ message: `同步: ${doc.title}`, increment: incrementValue });
+            const targetUri = this.fileManager.getDocLocalUri(doc);
+            const fileExists = await this.fileManager.fileExists(targetUri);
             const cloudMeta = cloudMetas.get(doc.obj_token);
-            // True Incremental Logic
-            if (fileExists && docState && cloudMeta) {
-                // If local state knows about this edit_time and it matches cloud, SKIP
-                if (docState.cloudEditTime === cloudMeta.latest_modify_time) {
-                    logger_1.logger.info(`Skipped unchanged document: [${doc.title}]`);
+            // 增量比对：如果文档未变更则跳过
+            if (fileExists && this.stateManager.getDocState(doc.obj_token)) {
+                if (this.stateManager.isDocUnchanged(doc.obj_token, cloudMeta?.latest_modify_time)) {
+                    logger_1.logger.info(`跳过 (未变更): [${doc.title}]`);
                     return;
                 }
             }
-            else if (fileExists && docState && !cloudMeta) {
-                // Fallback heuristic if meta fetch failed but file was recently synced
-                if (Date.now() - docState.lastSyncTime < 43200 * 1000) {
-                    logger_1.logger.info(`Skipped document (Cache Fallback): [${doc.title}]`);
-                    return;
+            logger_1.logger.info(`开始处理: [${doc.title}]`);
+            try {
+                // Step 1: 主线程从飞书拉取 Block 数据
+                const blocks = await this.fetchDocBlocks(doc.obj_token, doc.title);
+                // Step 2: Worker 线程执行 AST 转换
+                const result = await this.runWorkerConversion(blocks, doc.title);
+                if (result.success) {
+                    // Step 3: 主线程写入 Markdown 文件（含 Frontmatter 保护）
+                    let existingContent = null;
+                    if (fileExists) {
+                        try {
+                            existingContent = await this.fileManager.readFile(targetUri);
+                        }
+                        catch {
+                            // 读取失败则视为首次写入
+                        }
+                    }
+                    const finalContent = (0, fileWriteStrategy_1.applyProtectedWrite)(existingContent, result.markdown);
+                    await this.fileManager.writeFile(targetUri, finalContent);
+                    logger_1.logger.info(`已保存: [${doc.title}]`);
+                    // Step 4: 主线程下载媒体资源
+                    if (result.mediaTokens && result.mediaTokens.length > 0) {
+                        await this.mediaManager.processTokens(result.mediaTokens, doc.title);
+                    }
+                    // 更新同步状态
+                    this.stateManager.updateDocState(doc.obj_token, Date.now(), cloudMeta?.latest_modify_time);
+                }
+                else {
+                    logger_1.logger.error(`转换失败 [${doc.title}]: ${result.error}`);
                 }
             }
-            logger_1.logger.info(`Starting download worker for: [${doc.title}]`);
-            const errResult = await this.runWorkerForDoc(doc.obj_token, token, targetPath, doc.title);
-            if (errResult.success) {
-                logger_1.logger.info(`Successfully saved: [${doc.title}]`);
-                syncState[doc.obj_token] = {
-                    lastSyncTime: errResult.timestamp,
-                    cloudEditTime: cloudMeta?.latest_modify_time || undefined
-                };
-            }
-            else {
-                logger_1.logger.error(`Failed to convert [${doc.title}]: ${errResult.error}`);
+            catch (err) {
+                logger_1.logger.error(`处理失败 [${doc.title}]: ${err.message}`);
             }
         }));
         await Promise.all(tasks);
-        fs.writeFileSync(this.statePath, JSON.stringify(syncState, null, 2), 'utf-8');
+        await this.stateManager.saveState();
     }
-    buildLocalDirectories(nodes, rootPath) {
-        const nodeMap = new Map();
-        nodes.forEach(n => nodeMap.set(n.node_token, n));
-        const getPathForNode = (node) => {
-            const parts = [node.title.replace(/[\\/:*?"<>|]/g, '_')];
-            let current = node;
-            while (current.parent_node_token && nodeMap.has(current.parent_node_token)) {
-                current = nodeMap.get(current.parent_node_token);
-                parts.unshift(current.title.replace(/[\\/:*?"<>|]/g, '_'));
+    /**
+     * 从飞书 API 分页拉取文档的所有 Block 数据
+     */
+    async fetchDocBlocks(documentId, title) {
+        let allBlocks = [];
+        let pageToken = '';
+        let hasMore = true;
+        while (hasMore) {
+            const params = { page_size: 50 };
+            if (pageToken)
+                params.page_token = pageToken;
+            try {
+                const response = await feishuClient_1.feishuClient.request({
+                    url: `/docx/v1/documents/${documentId}/blocks`,
+                    method: 'GET',
+                    params
+                });
+                if (response.items) {
+                    allBlocks = allBlocks.concat(response.items);
+                }
+                hasMore = response.has_more;
+                pageToken = response.page_token;
             }
-            return path.join(rootPath, ...parts.slice(0, -1));
-        };
-        nodes.forEach(node => {
-            const dirPath = getPathForNode(node);
-            if (!fs.existsSync(dirPath)) {
-                fs.mkdirSync(dirPath, { recursive: true });
+            catch (err) {
+                if (err instanceof errors_1.FeishuApiError) {
+                    throw new Error(`API Error [${err.code}]: ${err.message} — 请确认应用拥有 docx:document:readonly 权限。`);
+                }
+                throw err;
             }
-        });
-    }
-    getDocLocalPath(doc, rootPath, allNodes) {
-        const nodeMap = new Map();
-        allNodes.forEach(n => nodeMap.set(n.node_token, n));
-        const parts = [doc.title.replace(/[\\/:*?"<>|]/g, '_') + '.md'];
-        let current = doc;
-        while (current.parent_node_token && nodeMap.has(current.parent_node_token)) {
-            current = nodeMap.get(current.parent_node_token);
-            parts.unshift(current.title.replace(/[\\/:*?"<>|]/g, '_'));
         }
-        return path.join(rootPath, ...parts);
+        logger_1.logger.info(`  [${title}] 共拉取 ${allBlocks.length} 个 Block。`);
+        return allBlocks;
     }
-    runWorkerForDoc(documentId, token, targetPath, title) {
+    /**
+     * 在 Worker 线程中执行 AST→Markdown 转换
+     */
+    runWorkerConversion(blocks, title) {
         return new Promise((resolve) => {
             const workerPath = path.join(__dirname, 'markdownWorker.js');
             const worker = new worker_threads_1.Worker(workerPath, {
-                workerData: { documentId, token, targetPath, title }
+                workerData: { blocks, title }
             });
             worker.on('message', (msg) => {
                 resolve(msg);
             });
-            worker.on('error', (err) => resolve({ success: false, error: err.message }));
+            worker.on('error', (err) => {
+                resolve({ success: false, error: err.message });
+            });
             worker.on('exit', (code) => {
-                if (code !== 0)
-                    resolve({ success: false, error: `Worker stopped with exit code ${code}` });
+                if (code !== 0) {
+                    resolve({ success: false, error: `Worker 异常退出 (code: ${code})` });
+                }
             });
         });
     }

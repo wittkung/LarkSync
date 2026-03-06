@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# 数据源定义：连接阿里云 PostgreSQL
+# ---------------------------------------------------------------------------
+kind: sources
+name: aliyun-pg-source
+type: postgres
+host: ${DB_HOST}
+port: ${DB_PORT:5432}
+database: ${DB_NAME}
+user: ${DB_USER}
+password: ${DB_PASSWORD}
+
+---
+# ---------------------------------------------------------------------------
+# 工具定义：获取数据库表结构 (辅助 Agent 编写数据类和网络请求)
+# ---------------------------------------------------------------------------
+kind: tools
+name: get-database-schema
+type: postgres-sql
+source: aliyun-pg-source
+description: 获取当前数据库的表结构信息。在编写数据模型或后端联调代码前，必须调用此工具确认表字段。
+parameters: []
+statement: |
+  SELECT table_name, column_name, data_type, character_maximum_length
+  FROM information_schema.columns 
+  WHERE table_schema = 'public' 
+  ORDER BY table_name, ordinal_position;
+
+---
+# ---------------------------------------------------------------------------
+# 工具定义：查询用户工程列表 (示例业务工具)
+# ---------------------------------------------------------------------------
+kind: tools
+name: query-video-projects
+type: postgres-sql
+source: aliyun-pg-source
+description: 根据用户 ID 查询其名下的视频剪辑工程元数据。
+parameters:
+  - name: user_id
+    type: string
+    description: 用户的唯一标识符 (UUID 或字符串)。
+# 使用 $1 作为参数占位符，防止 SQL 注入
+statement: SELECT project_id, project_name, created_at FROM video_projects WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10;

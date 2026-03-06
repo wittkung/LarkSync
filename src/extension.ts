@@ -2,21 +2,29 @@ import * as vscode from 'vscode';
 import { SyncEngine } from './syncEngine';
 import { logger } from './logger';
 import { SyncTreeProvider } from './treeProvider';
+import { SyncFileDecorationProvider } from './ui/syncFileDecorationProvider';
 
 let syncEngine: SyncEngine;
 let statusBarItem: vscode.StatusBarItem;
 let pollingTimer: NodeJS.Timeout | null = null;
 let treeProvider: SyncTreeProvider;
+let decorationProvider: SyncFileDecorationProvider;
 
 export function activate(context: vscode.ExtensionContext) {
     logger.info('LarkSync extension is now active!');
 
     syncEngine = new SyncEngine();
 
-    // Register Sidebar
+    // 注册侧边栏知识树
     treeProvider = new SyncTreeProvider(syncEngine);
     context.subscriptions.push(
         vscode.window.registerTreeDataProvider('larksyncSidebar', treeProvider)
+    );
+
+    // 注册文件装饰器（A/M/D 差异状态徽标）
+    decorationProvider = new SyncFileDecorationProvider();
+    context.subscriptions.push(
+        vscode.window.registerFileDecorationProvider(decorationProvider)
     );
 
     // Create Status Bar Item

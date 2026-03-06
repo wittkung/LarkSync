@@ -1,7 +1,11 @@
+/**
+ * treeProvider.ts
+ * 侧边栏文件树 — 使用 vscode.workspace.fs 实现 Remote Dev 兼容
+ */
+
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
 import { SyncEngine } from './syncEngine';
+import { CONSTANTS } from './utils/constants';
 
 export class SyncTreeProvider implements vscode.TreeDataProvider<SyncNode> {
 
@@ -18,63 +22,90 @@ export class SyncTreeProvider implements vscode.TreeDataProvider<SyncNode> {
         return element;
     }
 
-    getChildren(element?: SyncNode): Thenable<SyncNode[]> {
+    async getChildren(element?: SyncNode): Promise<SyncNode[]> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) {
-            return Promise.resolve([]);
+            return [];
         }
 
         const config = vscode.workspace.getConfiguration('larksync');
-        const syncDirName = config.get<string>('syncDirectory') || 'LarkDocs';
-        const rootPath = path.join(workspaceFolders[0].uri.fsPath, syncDirName);
+        const syncDirName = config.get<string>('syncDirectory') || CONSTANTS.DEFAULT_SYNC_DIR;
+        const rootUri = vscode.Uri.joinPath(workspaceFolders[0].uri, syncDirName);
 
-        if (!fs.existsSync(rootPath)) {
-            return Promise.resolve([new SyncNode('Not Synced Yet (Click Start Sync)', '', vscode.TreeItemCollapsibleState.None)]);
+        // 检查同步目录是否存在
+        if (!element) {
+            try {
+                await vscode.workspace.fs.stat(rootUri);
+            } catch {
+                return [new SyncNode(
+                    '尚未同步 (点击开始同步)',
+                    rootUri,
+                    vscode.TreeItemCollapsibleState.None
+                )];
+            }
         }
 
-        const targetPath = element ? element.fsPath : rootPath;
+        const targetUri = element ? element.resourceUri! : rootUri;
 
         try {
-            const files = fs.readdirSync(targetPath);
-            const nodes = files.filter(f => !f.startsWith('.')).map(file => {
-                const fsPath = path.join(targetPath, file);
-                const isDir = fs.statSync(fsPath).isDirectory();
+            const entries = await vscode.workspace.fs.readDirectory(targetUri);
+            const nodes: SyncNode[] = [];
+
+            for (const [name, fileType] of entries) {
+                // 跳过隐藏文件（以 . 开头）
+                if (name.startsWith('.')) continue;
+
+                const childUri = vscode.Uri.joinPath(targetUri, name);
+                const isDir = fileType === vscode.FileType.Directory;
 
                 if (isDir) {
-                    return new SyncNode(file, fsPath, vscode.TreeItemCollapsibleState.Collapsed);
+                    nodes.push(new SyncNode(
+                        name,
+                        childUri,
+                        vscode.TreeItemCollapsibleState.Collapsed
+                    ));
                 } else {
-                    return new SyncNode(file, fsPath, vscode.TreeItemCollapsibleState.None, {
-                        command: 'vscode.open',
-                        title: 'Open File',
-                        arguments: [vscode.Uri.file(fsPath)]
-                    });
+                    nodes.push(new SyncNode(
+                        name,
+                        childUri,
+                        vscode.TreeItemCollapsibleState.None,
+                        {
+                            command: 'vscode.open',
+                            title: '打开文件',
+                            arguments: [childUri]
+                        }
+                    ));
                 }
-            });
-            // Sort: Directories first, then alphabetically
-            return Promise.resolve(nodes.sort((a, b) => {
+            }
+
+            // 排序：目录在前，然后按名称字母序
+            return nodes.sort((a, b) => {
                 const aIsDir = a.collapsibleState !== vscode.TreeItemCollapsibleState.None;
                 const bIsDir = b.collapsibleState !== vscode.TreeItemCollapsibleState.None;
                 if (aIsDir && !bIsDir) return -1;
                 if (!aIsDir && bIsDir) return 1;
-                return a.label.localeCompare(b.label);
-            }));
-        } catch (e) {
-            return Promise.resolve([]);
+                return a.label!.toString().localeCompare(b.label!.toString());
+            });
+        } catch {
+            return [];
         }
     }
 }
 
 class SyncNode extends vscode.TreeItem {
     constructor(
-        public readonly label: string,
-        public readonly fsPath: string,
-        public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-        public readonly command?: vscode.Command
+        label: string,
+        uri: vscode.Uri,
+        collapsibleState: vscode.TreeItemCollapsibleState,
+        command?: vscode.Command
     ) {
         super(label, collapsibleState);
-        this.tooltip = `${this.fsPath}`;
+        this.resourceUri = uri;
+        this.tooltip = uri.fsPath;
+        this.command = command;
 
-        if (collapsibleState === vscode.TreeItemCollapsibleState.None && fsPath.endsWith('.md')) {
+        // 使用 ThemeIcon 保持与 VS Code 视觉一致
+        if (collapsibleState === vscode.TreeItemCollapsibleState.None && uri.fsPath.endsWith('.md')) {
             this.iconPath = vscode.ThemeIcon.File;
         } else if (collapsibleState !== vscode.TreeItemCollapsibleState.None) {
             this.iconPath = vscode.ThemeIcon.Folder;
