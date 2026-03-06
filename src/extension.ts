@@ -3,6 +3,9 @@ import { SyncEngine } from './syncEngine';
 import { logger } from './logger';
 import { SyncTreeProvider } from './treeProvider';
 import { SyncFileDecorationProvider } from './ui/syncFileDecorationProvider';
+import { TokenStore } from './auth/tokenStore';
+import { OAuthManager } from './auth/oauthManager';
+import { feishuClient } from './api/feishuClient';
 
 let syncEngine: SyncEngine;
 let statusBarItem: vscode.StatusBarItem;
@@ -63,6 +66,30 @@ export function activate(context: vscode.ExtensionContext) {
         if (treeProvider) {
             treeProvider.refresh();
         }
+    }));
+
+    // 注册 OAuth 登录/登出
+    const tokenStore = new TokenStore(context.secrets);
+    const oauthManager = new OAuthManager(tokenStore);
+
+    context.subscriptions.push(
+        vscode.window.registerUriHandler(oauthManager)
+    );
+
+    context.subscriptions.push(vscode.commands.registerCommand('larksync.login', async () => {
+        const success = await oauthManager.login();
+        if (success) {
+            // 登录成功后将 user token 设置到 feishuClient
+            const userToken = await oauthManager.getValidUserToken();
+            if (userToken) {
+                feishuClient.setUserAccessToken(userToken);
+            }
+        }
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand('larksync.logout', async () => {
+        await oauthManager.logout();
+        feishuClient.setUserAccessToken('');
     }));
 
     // Setup Polling

@@ -40,6 +40,9 @@ const syncEngine_1 = require("./syncEngine");
 const logger_1 = require("./logger");
 const treeProvider_1 = require("./treeProvider");
 const syncFileDecorationProvider_1 = require("./ui/syncFileDecorationProvider");
+const tokenStore_1 = require("./auth/tokenStore");
+const oauthManager_1 = require("./auth/oauthManager");
+const feishuClient_1 = require("./api/feishuClient");
 let syncEngine;
 let statusBarItem;
 let pollingTimer = null;
@@ -85,6 +88,24 @@ function activate(context) {
         if (treeProvider) {
             treeProvider.refresh();
         }
+    }));
+    // 注册 OAuth 登录/登出
+    const tokenStore = new tokenStore_1.TokenStore(context.secrets);
+    const oauthManager = new oauthManager_1.OAuthManager(tokenStore);
+    context.subscriptions.push(vscode.window.registerUriHandler(oauthManager));
+    context.subscriptions.push(vscode.commands.registerCommand('larksync.login', async () => {
+        const success = await oauthManager.login();
+        if (success) {
+            // 登录成功后将 user token 设置到 feishuClient
+            const userToken = await oauthManager.getValidUserToken();
+            if (userToken) {
+                feishuClient_1.feishuClient.setUserAccessToken(userToken);
+            }
+        }
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('larksync.logout', async () => {
+        await oauthManager.logout();
+        feishuClient_1.feishuClient.setUserAccessToken('');
     }));
     // Setup Polling
     setupPolling();

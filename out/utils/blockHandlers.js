@@ -313,7 +313,7 @@ function handleFile(block, ctx) {
     const placeholderPath = `./assets/${sanitizedTitle}/${data.name || data.token}`;
     return `📎 [${fileName}](${placeholderPath})\n\n`;
 }
-// --- 表格块（HTML 高保真模式） ---
+// --- 表格块（双模式渲染） ---
 function handleTable(block, ctx) {
     if (!block.children || block.children.length === 0)
         return '';
@@ -332,7 +332,6 @@ function handleTable(block, ctx) {
             if (cellId) {
                 const cellBlock = ctx.blockMap.get(cellId);
                 if (cellBlock) {
-                    // 递归渲染单元格内的内容
                     const cellContent = handleTableCell(cellBlock, ctx);
                     row.push(cellContent.trim());
                 }
@@ -346,7 +345,53 @@ function handleTable(block, ctx) {
         }
         cells.push(row);
     }
-    // HTML 高保真模式输出
+    // 根据配置选择渲染模式
+    if (ctx.tableRenderMode === 'gfm') {
+        return renderTableGFM(cells);
+    }
+    return renderTableHTML(cells);
+}
+/**
+ * GFM 纯 Markdown 表格渲染
+ */
+function renderTableGFM(cells) {
+    if (cells.length === 0)
+        return '';
+    const colCount = cells[0].length;
+    // 计算每列最大宽度（至少 3 个字符以满足 GFM 规范）
+    const colWidths = [];
+    for (let c = 0; c < colCount; c++) {
+        let maxWidth = 3;
+        for (const row of cells) {
+            const cellText = (row[c] || '').replace(/<br>/g, ' ');
+            maxWidth = Math.max(maxWidth, cellText.length);
+        }
+        colWidths.push(maxWidth);
+    }
+    const lines = [];
+    // 表头行
+    const headerCells = cells[0].map((cell, i) => {
+        const text = (cell || '').replace(/<br>/g, ' ');
+        return text.padEnd(colWidths[i]);
+    });
+    lines.push('| ' + headerCells.join(' | ') + ' |');
+    // 分隔行
+    const separator = colWidths.map(w => '-'.repeat(w));
+    lines.push('| ' + separator.join(' | ') + ' |');
+    // 数据行
+    for (let r = 1; r < cells.length; r++) {
+        const rowCells = cells[r].map((cell, i) => {
+            const text = (cell || '').replace(/<br>/g, ' ');
+            return text.padEnd(colWidths[i]);
+        });
+        lines.push('| ' + rowCells.join(' | ') + ' |');
+    }
+    return lines.join('\n') + '\n\n';
+}
+/**
+ * HTML 高保真表格渲染
+ */
+function renderTableHTML(cells) {
     let html = '\n<table style="border-collapse: collapse; width: 100%;">\n';
     for (let r = 0; r < cells.length; r++) {
         const isHeader = r === 0;

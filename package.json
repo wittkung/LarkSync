@@ -36,6 +36,16 @@
                 "command": "larksync.refreshSidebar",
                 "title": "Refresh Local Workspace",
                 "icon": "$(refresh)"
+            },
+            {
+                "command": "larksync.login",
+                "title": "LarkSync: Login with Feishu Account",
+                "icon": "$(log-in)"
+            },
+            {
+                "command": "larksync.logout",
+                "title": "LarkSync: Logout",
+                "icon": "$(log-out)"
             }
         ],
         "viewsContainers": {
@@ -102,6 +112,19 @@
                     "type": "number",
                     "default": 5,
                     "description": "Interval in minutes to poll for cloud updates (0 to disable)"
+                },
+                "larksync.tableRenderMode": {
+                    "type": "string",
+                    "default": "html",
+                    "enum": [
+                        "html",
+                        "gfm"
+                    ],
+                    "enumDescriptions": [
+                        "HTML high-fidelity mode: supports merged cells, styling (default)",
+                        "GFM pure mode: pure Markdown tables, better for GitHub/Hugo compatibility"
+                    ],
+                    "description": "Table rendering strategy for converted Markdown files"
                 }
             }
         }

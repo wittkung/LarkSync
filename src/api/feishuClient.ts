@@ -16,6 +16,25 @@ export class FeishuClient {
     private client: AxiosInstance;
     private tenantAccessToken: string = '';
     private tokenExpirationTime: number = 0;
+    /** 用户级别 Token（OAuth 登录后设置，优先于 tenant token） */
+    private userAccessToken: string = '';
+
+    /**
+     * 设置用户级别的 access_token（由 OAuthManager 在登录后调用）
+     */
+    public setUserAccessToken(token: string): void {
+        this.userAccessToken = token;
+    }
+
+    /**
+     * 获取当前有效的 Token（优先用户级，其次应用级）
+     */
+    public async getActiveToken(): Promise<string> {
+        if (this.userAccessToken) {
+            return this.userAccessToken;
+        }
+        return this.getTenantAccessToken();
+    }
 
     constructor() {
         this.client = axios.create({

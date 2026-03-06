@@ -36,6 +36,8 @@ export interface RenderContext {
     mediaTokens: MediaTokenEntry[];
     /** 文档标题（用于构建媒体资产目录） */
     docTitle: string;
+    /** 表格渲染模式：'html' 高保真（默认）| 'gfm' 纯 Markdown */
+    tableRenderMode: 'html' | 'gfm';
     /** 递归渲染子块的入口函数 */
     renderChildren: (childIds: string[], ctx: RenderContext) => string;
     /** 递归渲染单个块的入口函数 */
@@ -398,7 +400,7 @@ function handleFile(block: DocxBlock, ctx: RenderContext): string {
     return `📎 [${fileName}](${placeholderPath})\n\n`;
 }
 
-// --- 表格块（HTML 高保真模式） ---
+// --- 表格块（双模式渲染） ---
 function handleTable(block: DocxBlock, ctx: RenderContext): string {
     if (!block.children || block.children.length === 0) return '';
 
@@ -418,7 +420,6 @@ function handleTable(block: DocxBlock, ctx: RenderContext): string {
             if (cellId) {
                 const cellBlock = ctx.blockMap.get(cellId);
                 if (cellBlock) {
-                    // 递归渲染单元格内的内容
                     const cellContent = handleTableCell(cellBlock, ctx);
                     row.push(cellContent.trim());
                 } else {
@@ -431,7 +432,60 @@ function handleTable(block: DocxBlock, ctx: RenderContext): string {
         cells.push(row);
     }
 
-    // HTML 高保真模式输出
+    // 根据配置选择渲染模式
+    if (ctx.tableRenderMode === 'gfm') {
+        return renderTableGFM(cells);
+    }
+    return renderTableHTML(cells);
+}
+
+/**
+ * GFM 纯 Markdown 表格渲染
+ */
+function renderTableGFM(cells: string[][]): string {
+    if (cells.length === 0) return '';
+    const colCount = cells[0].length;
+
+    // 计算每列最大宽度（至少 3 个字符以满足 GFM 规范）
+    const colWidths: number[] = [];
+    for (let c = 0; c < colCount; c++) {
+        let maxWidth = 3;
+        for (const row of cells) {
+            const cellText = (row[c] || '').replace(/<br>/g, ' ');
+            maxWidth = Math.max(maxWidth, cellText.length);
+        }
+        colWidths.push(maxWidth);
+    }
+
+    const lines: string[] = [];
+
+    // 表头行
+    const headerCells = cells[0].map((cell, i) => {
+        const text = (cell || '').replace(/<br>/g, ' ');
+        return text.padEnd(colWidths[i]);
+    });
+    lines.push('| ' + headerCells.join(' | ') + ' |');
+
+    // 分隔行
+    const separator = colWidths.map(w => '-'.repeat(w));
+    lines.push('| ' + separator.join(' | ') + ' |');
+
+    // 数据行
+    for (let r = 1; r < cells.length; r++) {
+        const rowCells = cells[r].map((cell, i) => {
+            const text = (cell || '').replace(/<br>/g, ' ');
+            return text.padEnd(colWidths[i]);
+        });
+        lines.push('| ' + rowCells.join(' | ') + ' |');
+    }
+
+    return lines.join('\n') + '\n\n';
+}
+
+/**
+ * HTML 高保真表格渲染
+ */
+function renderTableHTML(cells: string[][]): string {
     let html = '\n<table style="border-collapse: collapse; width: 100%;">\n';
 
     for (let r = 0; r < cells.length; r++) {

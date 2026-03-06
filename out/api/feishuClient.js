@@ -43,9 +43,26 @@ const constants_1 = require("../utils/constants");
 const errors_1 = require("../utils/errors");
 const logger_1 = require("../logger");
 class FeishuClient {
+    /**
+     * 设置用户级别的 access_token（由 OAuthManager 在登录后调用）
+     */
+    setUserAccessToken(token) {
+        this.userAccessToken = token;
+    }
+    /**
+     * 获取当前有效的 Token（优先用户级，其次应用级）
+     */
+    async getActiveToken() {
+        if (this.userAccessToken) {
+            return this.userAccessToken;
+        }
+        return this.getTenantAccessToken();
+    }
     constructor() {
         this.tenantAccessToken = '';
         this.tokenExpirationTime = 0;
+        /** 用户级别 Token（OAuth 登录后设置，优先于 tenant token） */
+        this.userAccessToken = '';
         this.client = axios_1.default.create({
             baseURL: constants_1.CONSTANTS.FEISHU_API_BASE,
             timeout: 30000,

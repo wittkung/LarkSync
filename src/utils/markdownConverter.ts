@@ -58,6 +58,7 @@ export class MarkdownConverter {
             blockMap,
             mediaTokens,
             docTitle: title,
+            tableRenderMode: 'html',
             renderChildren: renderChildren,
             renderBlock: renderBlock,
         };
