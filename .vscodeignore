@@ -1,11 +1,13 @@
-# 开发源文件
+# 源文件（esbuild 已打包到 out/extension.js）
 src/**
-!src/**/*.js
-
-# TypeScript 配置与源映射
+esbuild.mjs
 tsconfig.json
 **/*.ts
+!out/**/*.js
 **/*.map
+
+# 依赖（esbuild 已内联所有运行时依赖）
+node_modules/
 
 # 开发工具
 .vscode/**
@@ -18,13 +20,17 @@ build.sh
 .eslintrc*
 .prettierrc*
 
-# 依赖与缓存
-node_modules/**
-
 # 测试
 **/__tests__/**
 **/test/**
 
-# 杂项
+# 杂项文件
+.gradle/**
+.idea/**
+.mcp/**
+build/**
+*.iml
+test_feishu.js
+test_wiki.js
 .gitignore
 *.vsix

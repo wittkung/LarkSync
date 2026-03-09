@@ -23,7 +23,7 @@ interface RateLimiterConfig {
 }
 
 const DEFAULT_CONFIG: RateLimiterConfig = {
-    maxQPS: 5,
+    maxQPS: 3,
     maxRetries: 3,
     baseDelayMs: 1000,
     maxDelayMs: 30000,

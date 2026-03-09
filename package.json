@@ -14,7 +14,9 @@
     "categories": [
         "Other"
     ],
-    "activationEvents": [],
+    "activationEvents": [
+        "onView:larksyncSidebar"
+    ],
     "main": "./out/extension.js",
     "extensionKind": [
         "workspace",
@@ -71,17 +73,27 @@
                 {
                     "command": "larksync.startSync",
                     "when": "view == larksyncSidebar",
-                    "group": "navigation"
+                    "group": "navigation@1"
                 },
                 {
                     "command": "larksync.forceSyncTree",
                     "when": "view == larksyncSidebar",
-                    "group": "navigation"
+                    "group": "navigation@2"
                 },
                 {
                     "command": "larksync.refreshSidebar",
                     "when": "view == larksyncSidebar",
-                    "group": "navigation"
+                    "group": "navigation@3"
+                },
+                {
+                    "command": "larksync.login",
+                    "when": "view == larksyncSidebar",
+                    "group": "1_auth@1"
+                },
+                {
+                    "command": "larksync.logout",
+                    "when": "view == larksyncSidebar",
+                    "group": "1_auth@2"
                 }
             ]
         },
@@ -115,7 +127,7 @@
                 },
                 "larksync.deleteOrphanFiles": {
                     "type": "boolean",
-                    "default": false,
+                    "default": true,
                     "description": "Automatically delete local files that no longer exist in the cloud knowledge base"
                 },
                 "larksync.tableRenderMode": {
@@ -137,9 +149,11 @@
     "scripts": {
         "vscode:prepublish": "npm run compile",
         "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
-        "compile": "tsc -p ./",
-        "build": "npm run clean && npm run compile && vsce package --no-dependencies",
-        "watch": "tsc -watch -p ./",
+        "compile": "npm run clean && node esbuild.mjs",
+        "build": "npm run compile && vsce package",
+        "watch": "node esbuild.mjs --watch",
+        "typecheck": "tsc -p ./ --noEmit",
+        "deploy": "npm run build && node scripts/install-ext.js",
         "pretest": "npm run compile"
     },
     "devDependencies": {
@@ -147,6 +161,7 @@
         "@types/vscode": "^1.80.0",
         "@typescript-eslint/eslint-plugin": "^8.56.1",
         "@typescript-eslint/parser": "^8.56.1",
+        "esbuild": "^0.27.3",
         "eslint": "^9.39.3",
         "typescript": "^5.1.3"
     },

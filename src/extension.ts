@@ -14,93 +14,105 @@ let treeProvider: SyncTreeProvider;
 let decorationProvider: SyncFileDecorationProvider;
 
 export function activate(context: vscode.ExtensionContext) {
-    logger.info('LarkSync extension is now active!');
+    try {
+        logger.info('LarkSync extension is now active!');
 
-    syncEngine = new SyncEngine();
+        syncEngine = new SyncEngine();
 
-    // 注册侧边栏知识树
-    treeProvider = new SyncTreeProvider(syncEngine);
-    context.subscriptions.push(
-        vscode.window.registerTreeDataProvider('larksyncSidebar', treeProvider)
-    );
+        // 注册侧边栏知识树
+        treeProvider = new SyncTreeProvider(syncEngine);
+        context.subscriptions.push(
+            vscode.window.registerTreeDataProvider('larksyncSidebar', treeProvider)
+        );
 
-    // 注册文件装饰器（A/M/D 差异状态徽标）
-    decorationProvider = new SyncFileDecorationProvider();
-    context.subscriptions.push(
-        vscode.window.registerFileDecorationProvider(decorationProvider)
-    );
+        // 注册文件装饰器（A/M/D 差异状态徽标）
+        decorationProvider = new SyncFileDecorationProvider();
+        context.subscriptions.push(
+            vscode.window.registerFileDecorationProvider(decorationProvider)
+        );
 
-    // Create Status Bar Item
-    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    statusBarItem.command = 'larksync.startSync';
-    statusBarItem.text = '$(sync) LarkSync';
-    statusBarItem.tooltip = 'Click to force sync Feishu Docs';
-    statusBarItem.show();
-    context.subscriptions.push(statusBarItem);
-
-    // Register Fast Sync Command
-    context.subscriptions.push(vscode.commands.registerCommand('larksync.startSync', async () => {
-        if (syncEngine.syncActive) {
-            vscode.window.showInformationMessage('LarkSync is already syncing...');
-            return;
-        }
-
-        statusBarItem.text = '$(sync~spin) LarkSync Syncing';
-        await syncEngine.startSync(false, false);
+        // Create Status Bar Item
+        statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+        statusBarItem.command = 'larksync.startSync';
         statusBarItem.text = '$(sync) LarkSync';
-    }));
+        statusBarItem.tooltip = 'Click to force sync Feishu Docs';
+        statusBarItem.show();
+        context.subscriptions.push(statusBarItem);
 
-    // Register Force Full Sync Command
-    context.subscriptions.push(vscode.commands.registerCommand('larksync.forceSyncTree', async () => {
-        if (syncEngine.syncActive) {
-            vscode.window.showInformationMessage('LarkSync is already syncing...');
-            return;
-        }
-
-        statusBarItem.text = '$(sync~spin) LarkSync Fetching Tree...';
-        await syncEngine.startSync(false, true);
-        statusBarItem.text = '$(sync) LarkSync';
-    }));
-
-    context.subscriptions.push(vscode.commands.registerCommand('larksync.refreshSidebar', () => {
-        if (treeProvider) {
-            treeProvider.refresh();
-        }
-    }));
-
-    // 注册 OAuth 登录/登出
-    const tokenStore = new TokenStore(context.secrets);
-    const oauthManager = new OAuthManager(tokenStore);
-
-    context.subscriptions.push(
-        vscode.window.registerUriHandler(oauthManager)
-    );
-
-    context.subscriptions.push(vscode.commands.registerCommand('larksync.login', async () => {
-        const success = await oauthManager.login();
-        if (success) {
-            // 登录成功后将 user token 设置到 feishuClient
-            const userToken = await oauthManager.getValidUserToken();
-            if (userToken) {
-                feishuClient.setUserAccessToken(userToken);
+        // Register Fast Sync Command
+        context.subscriptions.push(vscode.commands.registerCommand('larksync.startSync', async () => {
+            if (syncEngine.syncActive) {
+                vscode.window.showInformationMessage('LarkSync is already syncing...');
+                return;
             }
+
+            statusBarItem.text = '$(sync~spin) LarkSync Syncing';
+            await syncEngine.startSync(false, false);
+            statusBarItem.text = '$(sync) LarkSync';
+        }));
+
+        // Register Force Full Sync Command
+        context.subscriptions.push(vscode.commands.registerCommand('larksync.forceSyncTree', async () => {
+            if (syncEngine.syncActive) {
+                vscode.window.showInformationMessage('LarkSync is already syncing...');
+                return;
+            }
+
+            statusBarItem.text = '$(sync~spin) LarkSync Fetching Tree...';
+            await syncEngine.startSync(false, true);
+            statusBarItem.text = '$(sync) LarkSync';
+        }));
+
+        context.subscriptions.push(vscode.commands.registerCommand('larksync.refreshSidebar', () => {
+            if (treeProvider) {
+                treeProvider.refresh();
+            }
+        }));
+
+        // 注册 OAuth 登录/登出（独立 try-catch，不影响核心功能）
+        try {
+            const tokenStore = new TokenStore(context.secrets);
+            const oauthManager = new OAuthManager(tokenStore);
+
+            context.subscriptions.push(
+                vscode.window.registerUriHandler(oauthManager)
+            );
+
+            context.subscriptions.push(vscode.commands.registerCommand('larksync.login', async () => {
+                const success = await oauthManager.login();
+                if (success) {
+                    const userToken = await oauthManager.getValidUserToken();
+                    if (userToken) {
+                        feishuClient.setUserAccessToken(userToken);
+                    }
+                }
+            }));
+
+            context.subscriptions.push(vscode.commands.registerCommand('larksync.logout', async () => {
+                await oauthManager.logout();
+                feishuClient.setUserAccessToken('');
+            }));
+        } catch (authErr: any) {
+            logger.error(`OAuth 初始化失败（不影响核心同步）: ${authErr.message}`, authErr);
         }
-    }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('larksync.logout', async () => {
-        await oauthManager.logout();
-        feishuClient.setUserAccessToken('');
-    }));
+        // Setup Polling
+        setupPolling();
 
-    // Setup Polling
-    setupPolling();
+        // Re-setup polling if configuration changes
+        context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('larksync.pollingIntervalMinutes')) {
+                setupPolling();
+            }
+        }));
 
-    // Re-setup polling if configuration changes
-    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('larksync.pollingIntervalMinutes')) {
-            setupPolling();
-        }
-    }));
+        logger.info('LarkSync 所有组件注册完毕。');
+    } catch (err: any) {
+        const msg = `LarkSync 激活失败: ${err.message}`;
+        console.error(msg, err);
+        logger.error(msg, err);
+        vscode.window.showErrorMessage(msg);
+    }
 }
 
 function setupPolling() {

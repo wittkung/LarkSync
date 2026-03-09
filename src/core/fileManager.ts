@@ -149,6 +149,60 @@ export class FileManager {
         return uriSet;
     }
 
+    /**
+     * 获取所有文档的预期本地 fsPath 集合（用于跨平台路径比对）
+     */
+    public getExpectedDocPaths(nodes: WikiNode[]): Set<string> {
+        const pathSet = new Set<string>();
+        for (const node of nodes) {
+            if (node.obj_type === 'doc' || node.obj_type === 'docx') {
+                pathSet.add(this.getDocLocalUri(node).fsPath);
+            }
+        }
+        return pathSet;
+    }
+
+    /**
+     * 递归清理同步目录下的空文件夹
+     * @returns 删除的空目录数量
+     */
+    public async cleanEmptyDirectories(): Promise<number> {
+        return this.removeEmptyDirs(this.rootUri);
+    }
+
+    /**
+     * 递归删除空目录（自底向上）
+     */
+    private async removeEmptyDirs(dirUri: vscode.Uri): Promise<number> {
+        let count = 0;
+        try {
+            const entries = await vscode.workspace.fs.readDirectory(dirUri);
+
+            // 先递归处理子目录
+            for (const [name, type] of entries) {
+                if (type === vscode.FileType.Directory) {
+                    if (name === 'assets' || name.startsWith('.')) continue;
+                    const childUri = vscode.Uri.joinPath(dirUri, name);
+                    count += await this.removeEmptyDirs(childUri);
+                }
+            }
+
+            // 再次检查当前目录是否已为空（子目录可能刚被删除）
+            // 不删除根同步目录本身
+            if (dirUri.toString() !== this.rootUri.toString()) {
+                const remaining = await vscode.workspace.fs.readDirectory(dirUri);
+                if (remaining.length === 0) {
+                    logger.info(`删除空目录: ${dirUri.fsPath}`);
+                    await vscode.workspace.fs.delete(dirUri, { recursive: false });
+                    count++;
+                }
+            }
+        } catch {
+            // 目录不存在或无权限
+        }
+        return count;
+    }
+
     // --- 路径计算辅助方法 ---
 
     private buildPathParts(node: WikiNode): string[] {

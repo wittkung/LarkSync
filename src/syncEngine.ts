@@ -87,9 +87,13 @@ export class SyncEngine {
                 cancellable: false
             }, async (progress) => {
                 let nodes: WikiNode[] = [];
+                const deleteOrphans = config.get<boolean>('deleteOrphanFiles') ?? true;
+
+                // 当启用孤儿清理时，必须始终从云端拉取最新树以准确检测删除
+                const mustFetchFreshTree = deleteOrphans || forceFullTree;
 
                 // 尝试从本地缓存加载目录树
-                if (!forceFullTree) {
+                if (!mustFetchFreshTree) {
                     try {
                         const cacheData = await vscode.workspace.fs.readFile(treeCacheUri);
                         nodes = JSON.parse(Buffer.from(cacheData).toString('utf-8'));
@@ -101,7 +105,7 @@ export class SyncEngine {
                 }
 
                 // 从飞书拉取目录树
-                if (nodes.length === 0 || forceFullTree) {
+                if (nodes.length === 0 || mustFetchFreshTree) {
                     logger.info('从飞书拉取目录树...');
                     progress.report({ message: "正在从飞书拉取目录树..." });
                     nodes = await feishuClient.fetchAllWikiNodesRecursive(spaceId);
@@ -117,7 +121,6 @@ export class SyncEngine {
                 await this.syncNodes(nodes, progress);
 
                 // 清理云端已删除的本地孤儿文件
-                const deleteOrphans = config.get<boolean>('deleteOrphanFiles') ?? false;
                 if (deleteOrphans) {
                     progress.report({ message: '正在清理云端已删除的本地文件...' });
                     await this.cleanOrphanFiles(nodes);
@@ -222,23 +225,30 @@ export class SyncEngine {
     }
 
     /**
-     * 清理云端已删除但本地仍存在的孤儿 Markdown 文件
+     * 清理云端已删除/移动但本地仍存在的孤儿文件和空目录
      */
     private async cleanOrphanFiles(nodes: WikiNode[]) {
-        const expectedUris = this.fileManager.getExpectedDocUris(nodes);
+        // 用 fsPath 建立预期路径集合（避免 URI toString 格式差异）
+        const expectedPaths = this.fileManager.getExpectedDocPaths(nodes);
         const localFiles = await this.fileManager.listLocalMarkdownFiles();
+
+        logger.info(`孤儿检测: 云端文档 ${expectedPaths.size} 篇, 本地文件 ${localFiles.length} 个`);
 
         let deletedCount = 0;
         for (const localUri of localFiles) {
-            if (!expectedUris.has(localUri.toString())) {
-                logger.info(`删除孤儿文件: ${localUri.fsPath}`);
+            const localPath = localUri.fsPath;
+            if (!expectedPaths.has(localPath)) {
+                logger.info(`删除孤儿文件: ${localPath}`);
                 await this.fileManager.deleteFile(localUri);
                 deletedCount++;
             }
         }
 
-        if (deletedCount > 0) {
-            logger.info(`共清理 ${deletedCount} 个云端已删除的本地文件。`);
+        // 删除 .md 文件后，递归清理空目录
+        const emptyDirCount = await this.fileManager.cleanEmptyDirectories();
+
+        if (deletedCount > 0 || emptyDirCount > 0) {
+            logger.info(`共清理 ${deletedCount} 个孤儿文件, ${emptyDirCount} 个空目录。`);
         } else {
             logger.info('无需清理孤儿文件。');
         }

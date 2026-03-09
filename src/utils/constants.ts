@@ -8,8 +8,8 @@ export const CONSTANTS = {
     DEFAULT_SYNC_DIR: 'LarkDocs',
     ASSETS_DIR_NAME: 'assets',
     MAX_META_BATCH_SIZE: 200,
-    CONCURRENCY_LIMIT: 3,           // 文档同步并发数
-    MEDIA_DOWNLOAD_CONCURRENCY: 3,  // 图片下载并发数
+    CONCURRENCY_LIMIT: 2,           // 文档同步并发数
+    MEDIA_DOWNLOAD_CONCURRENCY: 2,  // 图片下载并发数
 
     // 重试与超时
     MAX_API_RETRIES: 5,
