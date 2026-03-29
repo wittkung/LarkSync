@@ -6,6 +6,7 @@ import { SyncFileDecorationProvider } from './ui/syncFileDecorationProvider';
 import { TokenStore } from './auth/tokenStore';
 import { OAuthManager } from './auth/oauthManager';
 import { feishuClient } from './api/feishuClient';
+import { CONSTANTS } from './utils/constants';
 
 let syncEngine: SyncEngine;
 let statusBarItem: vscode.StatusBarItem;
@@ -61,6 +62,19 @@ export function activate(context: vscode.ExtensionContext) {
             statusBarItem.text = '$(sync~spin) LarkSync Fetching Tree...';
             await syncEngine.startSync(false, true);
             statusBarItem.text = '$(sync) LarkSync';
+        }));
+
+        // Register Open Sync Folder Command
+        context.subscriptions.push(vscode.commands.registerCommand('larksync.openSyncFolder', () => {
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (workspaceFolders && workspaceFolders.length > 0) {
+                const config = vscode.workspace.getConfiguration('larksync');
+                const syncDirName = config.get<string>('syncDir', CONSTANTS.DEFAULT_SYNC_DIR);
+                const targetUri = vscode.Uri.joinPath(workspaceFolders[0].uri, syncDirName);
+                vscode.commands.executeCommand('revealFileInOS', targetUri);
+            } else {
+                vscode.window.showErrorMessage('LarkSync: 没有打开的工作区。');
+            }
         }));
 
         context.subscriptions.push(vscode.commands.registerCommand('larksync.refreshSidebar', () => {

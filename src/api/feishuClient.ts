@@ -19,6 +19,7 @@ export class FeishuClient {
     private tokenExpirationTime: number = 0;
     /** 用户级别 Token（OAuth 登录后设置，优先于 tenant token） */
     private userAccessToken: string = '';
+    private pendingTokenRefresh: Promise<string> | null = null;
 
     /**
      * 设置用户级别的 access_token（由 OAuthManager 在登录后调用）
@@ -78,6 +79,10 @@ export class FeishuClient {
             return this.tenantAccessToken;
         }
 
+        if (this.pendingTokenRefresh) {
+            return this.pendingTokenRefresh;
+        }
+
         const config = vscode.workspace.getConfiguration('larksync');
         const appId = config.get<string>('appId');
         const appSecret = config.get<string>('appSecret');
@@ -86,24 +91,30 @@ export class FeishuClient {
             throw new FeishuAuthError('App ID or App Secret is not configured. Please set them in VS Code settings.');
         }
 
-        try {
-            logger.info('Refreshing Feishu Tenant Access Token...');
-            const response = await axios.post<{ code: number, msg: string, tenant_access_token: string, expire: number }>(
-                CONSTANTS.FEISHU_AUTH_URL,
-                { app_id: appId, app_secret: appSecret }
-            );
+        this.pendingTokenRefresh = (async () => {
+            try {
+                logger.info('Refreshing Feishu Tenant Access Token...');
+                const response = await axios.post<{ code: number, msg: string, tenant_access_token: string, expire: number }>(
+                    CONSTANTS.FEISHU_AUTH_URL,
+                    { app_id: appId, app_secret: appSecret }
+                );
 
-            if (response.data.code === 0) {
-                this.tenantAccessToken = response.data.tenant_access_token;
-                // Refresh slightly before exact expiry to prevent race conditions
-                this.tokenExpirationTime = now + (response.data.expire - CONSTANTS.TOKEN_REFRESH_MARGIN_SEC) * 1000;
-                return this.tenantAccessToken;
-            } else {
-                throw new FeishuAuthError(response.data.msg);
+                if (response.data.code === 0) {
+                    this.tenantAccessToken = response.data.tenant_access_token;
+                    // Refresh slightly before exact expiry to prevent race conditions
+                    this.tokenExpirationTime = Date.now() + (response.data.expire - CONSTANTS.TOKEN_REFRESH_MARGIN_SEC) * 1000;
+                    return this.tenantAccessToken;
+                } else {
+                    throw new FeishuAuthError(response.data.msg);
+                }
+            } catch (error: any) {
+                throw new FeishuAuthError(error.message);
+            } finally {
+                this.pendingTokenRefresh = null;
             }
-        } catch (error: any) {
-            throw new FeishuAuthError(error.message);
-        }
+        })();
+
+        return this.pendingTokenRefresh;
     }
 
     /**

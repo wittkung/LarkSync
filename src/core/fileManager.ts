@@ -61,6 +61,15 @@ export class FileManager {
     }
 
     /**
+     * 获取文档相对于同步根目录的相对路径（使用正斜杠），用于状态存储映射
+     */
+    public getDocRelativePath(doc: WikiNode): string {
+        const parts = this.buildPathParts(doc);
+        parts[parts.length - 1] = this.sanitizeFileName(doc.title) + '.md';
+        return parts.join('/');
+    }
+
+    /**
      * 获取文档在本地文件系统中的路径字符串（用于日志等场景）
      */
     public getDocLocalPath(doc: WikiNode): string {
@@ -147,19 +156,6 @@ export class FileManager {
             }
         }
         return uriSet;
-    }
-
-    /**
-     * 获取所有文档的预期本地 fsPath 集合（用于跨平台路径比对）
-     */
-    public getExpectedDocPaths(nodes: WikiNode[]): Set<string> {
-        const pathSet = new Set<string>();
-        for (const node of nodes) {
-            if (node.obj_type === 'doc' || node.obj_type === 'docx') {
-                pathSet.add(this.getDocLocalUri(node).fsPath);
-            }
-        }
-        return pathSet;
     }
 
     /**

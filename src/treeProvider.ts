@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { SyncEngine } from './syncEngine';
+import { StateManager } from './core/stateManager';
 import { CONSTANTS } from './utils/constants';
 
 export class SyncTreeProvider implements vscode.TreeDataProvider<SyncNode> {
@@ -47,6 +48,11 @@ export class SyncTreeProvider implements vscode.TreeDataProvider<SyncNode> {
 
         const targetUri = element ? element.resourceUri! : rootUri;
 
+        // 加载状态树以获取上次同步时间
+        const stateManager = new StateManager(rootUri);
+        await stateManager.loadState();
+        const stateMapping = stateManager.getReverseMapping();
+
         try {
             const entries = await vscode.workspace.fs.readDirectory(targetUri);
             const nodes: SyncNode[] = [];
@@ -65,6 +71,23 @@ export class SyncTreeProvider implements vscode.TreeDataProvider<SyncNode> {
                         vscode.TreeItemCollapsibleState.Collapsed
                     ));
                 } else {
+                    // 获取相对路径 (去除前部可能因为操作系统差异导致的 \ 或 / 问题)
+                    let relativePath = childUri.path.substring(rootUri.path.length);
+                    // 统一为 posix 格式，去除首部斜杠
+                    relativePath = relativePath.replace(/^[/\\]/, '');
+
+                    const state = stateMapping.get(relativePath);
+                    let description = '';
+                    let tooltip = childUri.fsPath;
+
+                    if (state) {
+                        const date = new Date(state.lastSyncTime);
+                        description = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                        tooltip = `Local: ${childUri.fsPath}\nCloud ID: ${state.documentId}`;
+                    } else if (childUri.fsPath.endsWith('.md')) {
+                        description = '待同步';
+                    }
+
                     nodes.push(new SyncNode(
                         name,
                         childUri,
@@ -73,7 +96,9 @@ export class SyncTreeProvider implements vscode.TreeDataProvider<SyncNode> {
                             command: 'vscode.open',
                             title: '打开文件',
                             arguments: [childUri]
-                        }
+                        },
+                        description,
+                        tooltip
                     ));
                 }
             }
@@ -97,11 +122,14 @@ class SyncNode extends vscode.TreeItem {
         label: string,
         uri: vscode.Uri,
         collapsibleState: vscode.TreeItemCollapsibleState,
-        command?: vscode.Command
+        command?: vscode.Command,
+        description?: string,
+        customTooltip?: string
     ) {
         super(label, collapsibleState);
         this.resourceUri = uri;
-        this.tooltip = uri.fsPath;
+        this.tooltip = customTooltip || uri.fsPath;
+        this.description = description;
         this.command = command;
 
         // 使用 ThemeIcon 保持与 VS Code 视觉一致

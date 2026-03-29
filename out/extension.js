@@ -15620,6 +15620,7 @@ var FeishuClient = class {
     this.tokenExpirationTime = 0;
     /** 用户级别 Token（OAuth 登录后设置，优先于 tenant token） */
     this.userAccessToken = "";
+    this.pendingTokenRefresh = null;
     this.client = axios_default.create({
       baseURL: CONSTANTS.FEISHU_API_BASE,
       timeout: 3e4
@@ -15670,28 +15671,36 @@ var FeishuClient = class {
     if (this.tenantAccessToken && now < this.tokenExpirationTime) {
       return this.tenantAccessToken;
     }
+    if (this.pendingTokenRefresh) {
+      return this.pendingTokenRefresh;
+    }
     const config = vscode2.workspace.getConfiguration("larksync");
     const appId = config.get("appId");
     const appSecret = config.get("appSecret");
     if (!appId || !appSecret) {
       throw new FeishuAuthError("App ID or App Secret is not configured. Please set them in VS Code settings.");
     }
-    try {
-      logger.info("Refreshing Feishu Tenant Access Token...");
-      const response = await axios_default.post(
-        CONSTANTS.FEISHU_AUTH_URL,
-        { app_id: appId, app_secret: appSecret }
-      );
-      if (response.data.code === 0) {
-        this.tenantAccessToken = response.data.tenant_access_token;
-        this.tokenExpirationTime = now + (response.data.expire - CONSTANTS.TOKEN_REFRESH_MARGIN_SEC) * 1e3;
-        return this.tenantAccessToken;
-      } else {
-        throw new FeishuAuthError(response.data.msg);
+    this.pendingTokenRefresh = (async () => {
+      try {
+        logger.info("Refreshing Feishu Tenant Access Token...");
+        const response = await axios_default.post(
+          CONSTANTS.FEISHU_AUTH_URL,
+          { app_id: appId, app_secret: appSecret }
+        );
+        if (response.data.code === 0) {
+          this.tenantAccessToken = response.data.tenant_access_token;
+          this.tokenExpirationTime = Date.now() + (response.data.expire - CONSTANTS.TOKEN_REFRESH_MARGIN_SEC) * 1e3;
+          return this.tenantAccessToken;
+        } else {
+          throw new FeishuAuthError(response.data.msg);
+        }
+      } catch (error) {
+        throw new FeishuAuthError(error.message);
+      } finally {
+        this.pendingTokenRefresh = null;
       }
-    } catch (error) {
-      throw new FeishuAuthError(error.message);
-    }
+    })();
+    return this.pendingTokenRefresh;
   }
   /**
    * 标准请求封装 — 自动注入 Token + 全局限流 + 指数退避重试
@@ -15834,11 +15843,26 @@ var StateManager = class {
   getDocState(documentId) {
     return this.state[documentId];
   }
-  updateDocState(documentId, timestamp, cloudEditTime) {
+  updateDocState(documentId, timestamp, cloudEditTime, localRelativePath) {
     this.state[documentId] = {
       lastSyncTime: timestamp,
-      cloudEditTime
+      cloudEditTime,
+      localRelativePath
     };
+  }
+  /**
+   * 获取反向映射：相对路径 -> { documentId, SyncStateEntry }
+   * 供侧边栏 UI 快速查询使用
+   */
+  getReverseMapping() {
+    const mapping = /* @__PURE__ */ new Map();
+    for (const [docId, entry] of Object.entries(this.state)) {
+      if (entry.localRelativePath) {
+        const normalizedPath = entry.localRelativePath.replace(/^[/\\]/, "");
+        mapping.set(normalizedPath, { ...entry, documentId: docId });
+      }
+    }
+    return mapping;
   }
   isDocUnchanged(documentId, cloudEditTime) {
     const docState = this.getDocState(documentId);
@@ -15897,6 +15921,14 @@ var FileManager = class {
     const parts = this.buildPathParts(doc);
     parts[parts.length - 1] = this.sanitizeFileName(doc.title) + ".md";
     return vscode4.Uri.joinPath(this.rootUri, ...parts);
+  }
+  /**
+   * 获取文档相对于同步根目录的相对路径（使用正斜杠），用于状态存储映射
+   */
+  getDocRelativePath(doc) {
+    const parts = this.buildPathParts(doc);
+    parts[parts.length - 1] = this.sanitizeFileName(doc.title) + ".md";
+    return parts.join("/");
   }
   /**
    * 获取文档在本地文件系统中的路径字符串（用于日志等场景）
@@ -15975,18 +16007,6 @@ var FileManager = class {
       }
     }
     return uriSet;
-  }
-  /**
-   * 获取所有文档的预期本地 fsPath 集合（用于跨平台路径比对）
-   */
-  getExpectedDocPaths(nodes) {
-    const pathSet = /* @__PURE__ */ new Set();
-    for (const node of nodes) {
-      if (node.obj_type === "doc" || node.obj_type === "docx") {
-        pathSet.add(this.getDocLocalUri(node).fsPath);
-      }
-    }
-    return pathSet;
   }
   /**
    * 递归清理同步目录下的空文件夹
@@ -16168,6 +16188,9 @@ var SyncEngine = class {
   get syncActive() {
     return this.isSyncing;
   }
+  get state() {
+    return this.stateManager;
+  }
   async startSync(silent = false, forceFullTree = false) {
     logger.info("\u540C\u6B65\u89E6\u53D1\u3002");
     if (this.isSyncing) {
@@ -16299,7 +16322,8 @@ var SyncEngine = class {
           this.stateManager.updateDocState(
             doc.obj_token,
             Date.now(),
-            cloudMeta?.latest_modify_time
+            cloudMeta?.latest_modify_time,
+            this.fileManager.getDocRelativePath(doc)
           );
         } else {
           logger.error(`\u8F6C\u6362\u5931\u8D25 [${doc.title}]: ${result.error}`);
@@ -16315,14 +16339,14 @@ var SyncEngine = class {
    * 清理云端已删除/移动但本地仍存在的孤儿文件和空目录
    */
   async cleanOrphanFiles(nodes) {
-    const expectedPaths = this.fileManager.getExpectedDocPaths(nodes);
+    const expectedUris = this.fileManager.getExpectedDocUris(nodes);
     const localFiles = await this.fileManager.listLocalMarkdownFiles();
-    logger.info(`\u5B64\u513F\u68C0\u6D4B: \u4E91\u7AEF\u6587\u6863 ${expectedPaths.size} \u7BC7, \u672C\u5730\u6587\u4EF6 ${localFiles.length} \u4E2A`);
+    logger.info(`\u5B64\u513F\u68C0\u6D4B: \u4E91\u7AEF\u6587\u6863 ${expectedUris.size} \u7BC7, \u672C\u5730\u6587\u4EF6 ${localFiles.length} \u4E2A`);
     let deletedCount = 0;
     for (const localUri of localFiles) {
-      const localPath = localUri.fsPath;
-      if (!expectedPaths.has(localPath)) {
-        logger.info(`\u5220\u9664\u5B64\u513F\u6587\u4EF6: ${localPath}`);
+      const localUriString = localUri.toString();
+      if (!expectedUris.has(localUriString)) {
+        logger.info(`\u5220\u9664\u5B64\u513F\u6587\u4EF6: ${localUri.fsPath}`);
         await this.fileManager.deleteFile(localUri);
         deletedCount++;
       }
@@ -16423,6 +16447,9 @@ var SyncTreeProvider = class {
       }
     }
     const targetUri = element ? element.resourceUri : rootUri;
+    const stateManager = new StateManager(rootUri);
+    await stateManager.loadState();
+    const stateMapping = stateManager.getReverseMapping();
     try {
       const entries = await vscode7.workspace.fs.readDirectory(targetUri);
       const nodes = [];
@@ -16437,6 +16464,19 @@ var SyncTreeProvider = class {
             vscode7.TreeItemCollapsibleState.Collapsed
           ));
         } else {
+          let relativePath = childUri.path.substring(rootUri.path.length);
+          relativePath = relativePath.replace(/^[/\\]/, "");
+          const state = stateMapping.get(relativePath);
+          let description = "";
+          let tooltip = childUri.fsPath;
+          if (state) {
+            const date = new Date(state.lastSyncTime);
+            description = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+            tooltip = `Local: ${childUri.fsPath}
+Cloud ID: ${state.documentId}`;
+          } else if (childUri.fsPath.endsWith(".md")) {
+            description = "\u5F85\u540C\u6B65";
+          }
           nodes.push(new SyncNode(
             name,
             childUri,
@@ -16445,7 +16485,9 @@ var SyncTreeProvider = class {
               command: "vscode.open",
               title: "\u6253\u5F00\u6587\u4EF6",
               arguments: [childUri]
-            }
+            },
+            description,
+            tooltip
           ));
         }
       }
@@ -16462,10 +16504,11 @@ var SyncTreeProvider = class {
   }
 };
 var SyncNode = class extends vscode7.TreeItem {
-  constructor(label, uri, collapsibleState, command) {
+  constructor(label, uri, collapsibleState, command, description, customTooltip) {
     super(label, collapsibleState);
     this.resourceUri = uri;
-    this.tooltip = uri.fsPath;
+    this.tooltip = customTooltip || uri.fsPath;
+    this.description = description;
     this.command = command;
     if (collapsibleState === vscode7.TreeItemCollapsibleState.None && uri.fsPath.endsWith(".md")) {
       this.iconPath = vscode7.ThemeIcon.File;
@@ -16848,6 +16891,17 @@ function activate(context) {
       statusBarItem.text = "$(sync~spin) LarkSync Fetching Tree...";
       await syncEngine.startSync(false, true);
       statusBarItem.text = "$(sync) LarkSync";
+    }));
+    context.subscriptions.push(vscode10.commands.registerCommand("larksync.openSyncFolder", () => {
+      const workspaceFolders = vscode10.workspace.workspaceFolders;
+      if (workspaceFolders && workspaceFolders.length > 0) {
+        const config = vscode10.workspace.getConfiguration("larksync");
+        const syncDirName = config.get("syncDir", CONSTANTS.DEFAULT_SYNC_DIR);
+        const targetUri = vscode10.Uri.joinPath(workspaceFolders[0].uri, syncDirName);
+        vscode10.commands.executeCommand("revealFileInOS", targetUri);
+      } else {
+        vscode10.window.showErrorMessage("LarkSync: \u6CA1\u6709\u6253\u5F00\u7684\u5DE5\u4F5C\u533A\u3002");
+      }
     }));
     context.subscriptions.push(vscode10.commands.registerCommand("larksync.refreshSidebar", () => {
       if (treeProvider) {

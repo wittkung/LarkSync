@@ -34,6 +34,10 @@ export class SyncEngine {
         return this.isSyncing;
     }
 
+    public get state(): StateManager {
+        return this.stateManager;
+    }
+
     public async startSync(silent: boolean = false, forceFullTree: boolean = false) {
         logger.info('同步触发。');
         if (this.isSyncing) {
@@ -210,7 +214,8 @@ export class SyncEngine {
                     this.stateManager.updateDocState(
                         doc.obj_token,
                         Date.now(),
-                        cloudMeta?.latest_modify_time
+                        cloudMeta?.latest_modify_time,
+                        this.fileManager.getDocRelativePath(doc)
                     );
                 } else {
                     logger.error(`转换失败 [${doc.title}]: ${result.error}`);
@@ -228,17 +233,17 @@ export class SyncEngine {
      * 清理云端已删除/移动但本地仍存在的孤儿文件和空目录
      */
     private async cleanOrphanFiles(nodes: WikiNode[]) {
-        // 用 fsPath 建立预期路径集合（避免 URI toString 格式差异）
-        const expectedPaths = this.fileManager.getExpectedDocPaths(nodes);
+        // 使用 uri.toString() 建立预期路径集合，杜绝操作系统的 fsPath 差异
+        const expectedUris = this.fileManager.getExpectedDocUris(nodes);
         const localFiles = await this.fileManager.listLocalMarkdownFiles();
 
-        logger.info(`孤儿检测: 云端文档 ${expectedPaths.size} 篇, 本地文件 ${localFiles.length} 个`);
+        logger.info(`孤儿检测: 云端文档 ${expectedUris.size} 篇, 本地文件 ${localFiles.length} 个`);
 
         let deletedCount = 0;
         for (const localUri of localFiles) {
-            const localPath = localUri.fsPath;
-            if (!expectedPaths.has(localPath)) {
-                logger.info(`删除孤儿文件: ${localPath}`);
+            const localUriString = localUri.toString();
+            if (!expectedUris.has(localUriString)) {
+                logger.info(`删除孤儿文件: ${localUri.fsPath}`);
                 await this.fileManager.deleteFile(localUri);
                 deletedCount++;
             }

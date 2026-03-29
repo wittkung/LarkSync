@@ -15,7 +15,7 @@
         "Other"
     ],
     "activationEvents": [
-        "onView:larksyncSidebar"
+        "onCommand:larksync.startSync"
     ],
     "main": "./out/extension.js",
     "extensionKind": [
@@ -33,6 +33,11 @@
                 "command": "larksync.forceSyncTree",
                 "title": "LarkSync: Force Fetch Directory Tree",
                 "icon": "$(cloud-download)"
+            },
+            {
+                "command": "larksync.openSyncFolder",
+                "title": "Open Sync Folder in OS Explorer",
+                "icon": "$(folder-opened)"
             },
             {
                 "command": "larksync.refreshSidebar",
@@ -70,6 +75,11 @@
         },
         "menus": {
             "view/title": [
+                {
+                    "command": "larksync.openSyncFolder",
+                    "when": "view == larksyncSidebar",
+                    "group": "navigation@0"
+                },
                 {
                     "command": "larksync.startSync",
                     "when": "view == larksyncSidebar",
