@@ -18,6 +18,7 @@ import { feishuClient } from './api/feishuClient';
 import { StateManager } from './core/stateManager';
 import { FileManager } from './core/fileManager';
 import { MediaManager } from './core/mediaManager';
+import { TreeDiffEngine } from './core/treeDiffEngine';
 import { WikiNode, DocxBlock, DocxBlockListResponse, MediaTokenEntry } from './types';
 import { CONSTANTS } from './utils/constants';
 import { logger } from './logger';
@@ -29,6 +30,9 @@ export class SyncEngine {
     private stateManager!: StateManager;
     private fileManager!: FileManager;
     private mediaManager!: MediaManager;
+
+    private _onProgress = new vscode.EventEmitter<{ type: 'start' | 'progress' | 'complete' | 'error'; message: string; percent?: number }>();
+    public readonly onProgress = this._onProgress.event;
 
     public get syncActive() {
         return this.isSyncing;
@@ -68,8 +72,11 @@ export class SyncEngine {
         }
 
         this.isSyncing = true;
-        const syncDirName = config.get<string>('syncDirectory') || CONSTANTS.DEFAULT_SYNC_DIR;
-        const rootUri = vscode.Uri.joinPath(workspaceFolders[0].uri, syncDirName);
+        const configuredDir = config.get<string>('syncDirectory');
+        const syncDirName = configuredDir !== undefined ? configuredDir : CONSTANTS.DEFAULT_SYNC_DIR;
+        const rootUri = syncDirName 
+            ? vscode.Uri.joinPath(workspaceFolders[0].uri, syncDirName)
+            : workspaceFolders[0].uri;
         logger.info(`开始同步 Space: ${spaceId} → ${rootUri.fsPath}`);
 
         // 初始化各管理器
@@ -89,54 +96,113 @@ export class SyncEngine {
                 location: silent ? vscode.ProgressLocation.Window : vscode.ProgressLocation.Notification,
                 title: "LarkSync",
                 cancellable: false
-            }, async (progress) => {
+            }, async (rawProgress) => {
+                let currentPercent = 0;
+                const progress = {
+                    report: (msg: { message?: string; increment?: number; type?: 'start' | 'progress' | 'complete' | 'error' }) => {
+                        rawProgress.report({ message: msg.message, increment: msg.increment });
+                        if (msg.message || msg.increment) {
+                            if (msg.increment) currentPercent += msg.increment;
+                            // Clamp percent
+                            const pct = Math.min(Math.round(currentPercent), 100);
+                            this._onProgress.fire({ 
+                                type: msg.type || 'progress', 
+                                message: msg.message || 'Syncing...',
+                                percent: pct
+                            });
+                        }
+                    }
+                };
+                
+                this._onProgress.fire({ type: 'start', message: 'Initializing sync...', percent: 0 });
+
                 let nodes: WikiNode[] = [];
                 const deleteOrphans = config.get<boolean>('deleteOrphanFiles') ?? true;
+                let treeIsComplete = false;
 
-                // 当启用孤儿清理时，必须始终从云端拉取最新树以准确检测删除
-                const mustFetchFreshTree = deleteOrphans || forceFullTree;
-
-                // 尝试从本地缓存加载目录树
-                if (!mustFetchFreshTree) {
+                if (forceFullTree) {
+                    // ===== 策略 A：强制全量拉取（用户手动触发） =====
+                    logger.info('强制全量拉取目录树...');
+                    progress.report({ message: '正在从飞书拉取完整目录树...' });
+                    nodes = await feishuClient.fetchAllWikiNodesRecursive(spaceId);
+                    treeIsComplete = true;
+                } else {
+                    // 尝试加载本地缓存
+                    let cachedNodes: WikiNode[] = [];
                     try {
                         const cacheData = await vscode.workspace.fs.readFile(treeCacheUri);
-                        nodes = JSON.parse(Buffer.from(cacheData).toString('utf-8'));
-                        logger.info(`从缓存加载了 ${nodes.length} 个节点。`);
-                        progress.report({ message: "从缓存加载目录树..." });
+                        cachedNodes = JSON.parse(Buffer.from(cacheData).toString('utf-8'));
+                        logger.info(`从缓存加载了 ${cachedNodes.length} 个节点。`);
                     } catch {
-                        logger.info('无本地缓存，将从飞书拉取。');
+                        logger.info('无可用本地缓存。');
+                    }
+
+                    if (cachedNodes.length === 0) {
+                        // ===== 策略 B：无缓存，首次全量拉取 =====
+                        logger.info('首次同步，全量拉取目录树...');
+                        progress.report({ message: '首次同步，正在拉取完整目录树...' });
+                        nodes = await feishuClient.fetchAllWikiNodesRecursive(spaceId);
+                        treeIsComplete = true;
+                    } else {
+                        // ===== 策略 C：增量 Diff！🎯 =====
+                        logger.info('执行增量目录树同步...');
+                        progress.report({ message: '正在检测知识库变更...' });
+
+                        const diffEngine = new TreeDiffEngine(feishuClient, spaceId);
+                        const diffResult = await diffEngine.diffAndMerge(cachedNodes);
+
+                        nodes = diffResult.mergedNodes;
+                        treeIsComplete = diffResult.isTreeComplete;
+
+                        // 汇报变更摘要
+                        const summary: string[] = [];
+                        if (diffResult.addedNodes.length > 0) {
+                            summary.push(`新增 ${diffResult.addedNodes.length} 个节点`);
+                        }
+                        if (diffResult.deletedNodeTokens.length > 0) {
+                            summary.push(`删除 ${diffResult.deletedNodeTokens.length} 个节点`);
+                        }
+                        if (diffResult.contentChangedNodes.length > 0) {
+                            summary.push(`${diffResult.contentChangedNodes.length} 篇文档有更新`);
+                        }
+
+                        if (summary.length > 0) {
+                            const msg = `增量检测: ${summary.join(', ')} (${diffResult.apiCallCount} 次API调用)`;
+                            logger.info(msg);
+                            progress.report({ message: msg });
+                        } else {
+                            logger.info(`增量检测: 知识库无变更 (${diffResult.apiCallCount} 次API调用)`);
+                            progress.report({ message: '知识库无变更' });
+                        }
                     }
                 }
 
-                // 从飞书拉取目录树
-                if (nodes.length === 0 || mustFetchFreshTree) {
-                    logger.info('从飞书拉取目录树...');
-                    progress.report({ message: "正在从飞书拉取目录树..." });
-                    nodes = await feishuClient.fetchAllWikiNodesRecursive(spaceId);
-
-                    // 缓存目录树
-                    const treeCacheContent = Buffer.from(JSON.stringify(nodes, null, 2), 'utf-8');
-                    await vscode.workspace.fs.writeFile(treeCacheUri, treeCacheContent);
-                    logger.info(`已缓存 ${nodes.length} 个节点。`);
-                }
+                // 缓存更新后的目录树
+                const treeCacheContent = Buffer.from(JSON.stringify(nodes, null, 2), 'utf-8');
+                await vscode.workspace.fs.writeFile(treeCacheUri, treeCacheContent);
+                logger.info(`已缓存 ${nodes.length} 个节点。`);
 
                 progress.report({ message: `准备同步 ${nodes.length} 个节点...` });
                 this.fileManager.setNodes(nodes);
                 await this.syncNodes(nodes, progress);
 
-                // 清理云端已删除的本地孤儿文件
-                if (deleteOrphans) {
+                // 孤儿清理：增量合并后的树也是完整的，可以安全清理
+                if (deleteOrphans && treeIsComplete) {
                     progress.report({ message: '正在清理云端已删除的本地文件...' });
                     await this.cleanOrphanFiles(nodes);
+                } else if (deleteOrphans && !treeIsComplete) {
+                    logger.info('跳过孤儿文件清理：增量 Diff 出错，树完整性未保障。');
                 }
             });
 
             logger.info('同步完成！');
+            this._onProgress.fire({ type: 'complete', message: 'Sync generated successfully.' });
             vscode.commands.executeCommand('larksync.refreshSidebar');
             if (!silent) {
                 vscode.window.showInformationMessage('LarkSync: 同步完成！');
             }
         } catch (error: any) {
+            this._onProgress.fire({ type: 'error', message: error.message });
             logger.error(`同步错误: ${error.message}`, error);
             if (!silent) {
                 vscode.window.showErrorMessage(`LarkSync 错误: ${error.message}`);
@@ -174,10 +240,34 @@ export class SyncEngine {
             const fileExists = await this.fileManager.fileExists(targetUri);
             const cloudMeta = cloudMetas.get(doc.obj_token);
 
-            // 增量比对：如果文档未变更则跳过
+            // 冲突判定逻辑
             if (fileExists && this.stateManager.getDocState(doc.obj_token)) {
-                if (this.stateManager.isDocUnchanged(doc.obj_token, cloudMeta?.latest_modify_time)) {
-                    logger.info(`跳过 (未变更): [${doc.title}]`);
+                // 判断云端是否未变更
+                const cloudUnchanged = this.stateManager.isDocUnchanged(doc.obj_token, cloudMeta?.latest_modify_time);
+                
+                // 判断本地是否已被修改
+                let isModifiedLocally = false;
+                try {
+                    const stats = await vscode.workspace.fs.stat(targetUri);
+                    const state = this.stateManager.getDocState(doc.obj_token);
+                    if (state && (stats.mtime - state.lastSyncTime) > 2000) {
+                        isModifiedLocally = true;
+                    }
+                } catch {
+                    // Ignore stat error
+                }
+
+                if (cloudUnchanged) {
+                    if (isModifiedLocally) {
+                        logger.info(`跳过 (本地变更, 远端未变): [${doc.title}]`);
+                    } else {
+                        logger.info(`跳过 (双端未变): [${doc.title}]`);
+                    }
+                    return;
+                } else if (isModifiedLocally) {
+                    // 云端变更了，且本地也变更了！触发冲突保护！
+                    logger.warn(`冲突跳过: [${doc.title}] 本地已被修改，暂停拉取以保护您的数据。`);
+                    vscode.window.showWarningMessage(`LarkSync: [${doc.title}] 存在冲突！本地修改已保留，暂时停止云端覆盖。`);
                     return;
                 }
             }

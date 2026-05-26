@@ -16,6 +16,10 @@ export interface WikiNode {
     parent_node_token: string;
     title: string;
     has_child: boolean;
+    /** 文档最后编辑时间（Unix 秒字符串），来自飞书 wiki nodes API */
+    obj_edit_time?: string;
+    /** 节点在知识库中的创建时间（Unix 秒字符串） */
+    node_create_time?: string;
 }
 
 export interface WikiNodeListResponse {
@@ -357,11 +361,17 @@ export interface SyncManifest {
 export enum SyncNodeStatus {
     /** 已同步且一致 */
     SYNCED = 'synced',
-    /** 云端新增，本地尚未同步 */
+    /** 本地已修改（mtime > lastSyncTime），但云端未更新 */
+    LOCAL_MODIFIED = 'local_modified',
+    /** 云端有新版本，但本地未修改 */
+    CLOUD_UPDATED = 'cloud_updated',
+    /** 本地已修改，且云端也有新版本（需要解决冲突） */
+    CONFLICT = 'conflict',
+    /** 本地新建的脱机文件（未绑定云端） */
+    UNTRACKED = 'untracked',
+    /** 远端新增，本地尚未同步 */
     ADDED = 'added',
-    /** 云端 revision_id 大于本地 manifest */
-    MODIFIED = 'modified',
-    /** 本地存在但云端已删除 */
+    /** 远端删除，待清理 */
     DELETED = 'deleted',
 }
 

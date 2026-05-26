@@ -10104,7 +10104,7 @@ var require_form_data = __commonJS({
     var CombinedStream = require_combined_stream();
     var util3 = require("util");
     var path2 = require("path");
-    var http3 = require("http");
+    var http4 = require("http");
     var https2 = require("https");
     var parseUrl = require("url").parse;
     var fs = require("fs");
@@ -10376,7 +10376,7 @@ var require_form_data = __commonJS({
       if (options.protocol === "https:") {
         request = https2.request(options);
       } else {
-        request = http3.request(options);
+        request = http4.request(options);
       }
       this.getLength(function(err, length) {
         if (err && err !== "Unknown stream") {
@@ -11273,8 +11273,8 @@ var require_debug = __commonJS({
 var require_follow_redirects = __commonJS({
   "node_modules/follow-redirects/index.js"(exports2, module2) {
     var url2 = require("url");
-    var URL2 = url2.URL;
-    var http3 = require("http");
+    var URL3 = url2.URL;
+    var http4 = require("http");
     var https2 = require("https");
     var Writable = require("stream").Writable;
     var assert = require("assert");
@@ -11289,7 +11289,7 @@ var require_follow_redirects = __commonJS({
     })();
     var useNativeURL = false;
     try {
-      assert(new URL2(""));
+      assert(new URL3(""));
     } catch (error) {
       useNativeURL = error.code === "ERR_INVALID_URL";
     }
@@ -11669,7 +11669,7 @@ var require_follow_redirects = __commonJS({
     function parseUrl(input) {
       var parsed;
       if (useNativeURL) {
-        parsed = new URL2(input);
+        parsed = new URL3(input);
       } else {
         parsed = validateUrl(url2.parse(input));
         if (!isString2(parsed.protocol)) {
@@ -11679,7 +11679,7 @@ var require_follow_redirects = __commonJS({
       return parsed;
     }
     function resolveUrl(relative, base) {
-      return useNativeURL ? new URL2(relative, base) : parseUrl(url2.resolve(base, relative));
+      return useNativeURL ? new URL3(relative, base) : parseUrl(url2.resolve(base, relative));
     }
     function validateUrl(input) {
       if (/^\[/.test(input.hostname) && !/^\[[:0-9a-f]+\]$/i.test(input.hostname)) {
@@ -11758,9 +11758,9 @@ var require_follow_redirects = __commonJS({
       return typeof value === "object" && "length" in value;
     }
     function isURL(value) {
-      return URL2 && value instanceof URL2;
+      return URL3 && value instanceof URL3;
     }
-    module2.exports = wrap({ http: http3, https: https2 });
+    module2.exports = wrap({ http: http4, https: https2 });
     module2.exports.wrap = wrap;
   }
 });
@@ -11772,7 +11772,7 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var vscode10 = __toESM(require("vscode"));
+var vscode11 = __toESM(require("vscode"));
 
 // src/syncEngine.ts
 var vscode6 = __toESM(require("vscode"));
@@ -15443,7 +15443,7 @@ var CONSTANTS = {
   FEISHU_AUTH_URL: "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
   FEISHU_META_BATCH_QUERY_URL: "https://open.feishu.cn/open-apis/drive/v1/metas/batch_query",
   // 同步设置
-  DEFAULT_SYNC_DIR: "LarkDocs",
+  DEFAULT_SYNC_DIR: "",
   ASSETS_DIR_NAME: "assets",
   MAX_META_BATCH_SIZE: 200,
   CONCURRENCY_LIMIT: 2,
@@ -15455,6 +15455,8 @@ var CONSTANTS = {
   RETRY_BASE_DELAY_MS: 1500,
   TOKEN_REFRESH_MARGIN_SEC: 300,
   FALLBACK_CACHE_TTL_MS: 43200 * 1e3,
+  /** 增量同步：每层级最大分页请求数（安全阀，防止异常无限分页） */
+  MAX_PAGES_PER_LEVEL: 20,
   // 文件名与路径
   STATE_FILE_NAME: ".larksync_state.json",
   TREE_CACHE_FILE_NAME: ".larksync_tree.json"
@@ -15653,6 +15655,9 @@ var FeishuClient = class {
    */
   setUserAccessToken(token) {
     this.userAccessToken = token;
+  }
+  isLoggedIn() {
+    return !!this.userAccessToken || !!this.tenantAccessToken;
   }
   /**
    * 获取当前有效的 Token（优先用户级，其次应用级）
@@ -16158,6 +16163,192 @@ var MediaManager = class {
   }
 };
 
+// src/core/treeDiffEngine.ts
+var TreeDiffEngine = class {
+  constructor(feishuClient2, spaceId) {
+    this.feishuClient = feishuClient2;
+    this.spaceId = spaceId;
+    this.apiCallCount = 0;
+  }
+  /**
+   * 执行增量目录树同步
+   * @param cachedNodes 本地缓存的旧节点列表
+   * @returns 差异结果 + 合并后的完整树
+   */
+  async diffAndMerge(cachedNodes) {
+    this.apiCallCount = 0;
+    const cachedByToken = /* @__PURE__ */ new Map();
+    const cachedByParent = /* @__PURE__ */ new Map();
+    for (const node of cachedNodes) {
+      cachedByToken.set(node.node_token, node);
+      const parentKey = node.parent_node_token || "__root__";
+      if (!cachedByParent.has(parentKey)) {
+        cachedByParent.set(parentKey, []);
+      }
+      cachedByParent.get(parentKey).push(node);
+    }
+    const added = [];
+    const deleted = [];
+    const contentChanged = [];
+    try {
+      await this.diffLevel(
+        void 0,
+        // 根层
+        cachedByParent,
+        cachedByToken,
+        added,
+        deleted,
+        contentChanged
+      );
+    } catch (err) {
+      logger.error(`\u589E\u91CF Diff \u51FA\u9519: ${err.message}`);
+      return {
+        mergedNodes: cachedNodes,
+        addedNodes: [],
+        deletedNodeTokens: [],
+        contentChangedNodes: [],
+        isTreeComplete: false,
+        apiCallCount: this.apiCallCount
+      };
+    }
+    const mergedNodes = this.buildMergedTree(
+      cachedNodes,
+      cachedByToken,
+      added,
+      deleted
+    );
+    logger.info(
+      `\u589E\u91CF Diff \u5B8C\u6210: +${added.length} / -${deleted.length} / ~${contentChanged.length} (${this.apiCallCount} \u6B21 API \u8C03\u7528, \u5408\u5E76\u540E ${mergedNodes.length} \u4E2A\u8282\u70B9)`
+    );
+    return {
+      mergedNodes,
+      addedNodes: added,
+      deletedNodeTokens: deleted,
+      contentChangedNodes: contentChanged,
+      isTreeComplete: true,
+      apiCallCount: this.apiCallCount
+    };
+  }
+  /**
+   * 对某一层级做 Diff
+   * @param parentNodeToken 父节点 token（undefined 表示根层）
+   */
+  async diffLevel(parentNodeToken, cachedByParent, cachedByToken, added, deleted, contentChanged) {
+    const freshNodes = await this.fetchAllNodesForParent(parentNodeToken);
+    const parentKey = parentNodeToken || "__root__";
+    const cachedChildren = cachedByParent.get(parentKey) || [];
+    const freshTokenSet = new Set(freshNodes.map((n) => n.node_token));
+    for (const freshNode of freshNodes) {
+      const cachedNode = cachedByToken.get(freshNode.node_token);
+      if (!cachedNode) {
+        logger.info(`[\u589E\u91CF] \u53D1\u73B0\u65B0\u8282\u70B9: [${freshNode.title}] (${freshNode.node_token})`);
+        added.push(freshNode);
+        if (freshNode.has_child) {
+          logger.info(`[\u589E\u91CF] \u9012\u5F52\u62C9\u53D6\u65B0\u5206\u652F: [${freshNode.title}]`);
+          const subTree = await this.feishuClient.fetchAllWikiNodesRecursive(
+            this.spaceId,
+            freshNode.node_token
+          );
+          this.apiCallCount++;
+          added.push(...subTree);
+        }
+      } else {
+        if (freshNode.obj_edit_time && cachedNode.obj_edit_time && freshNode.obj_edit_time !== cachedNode.obj_edit_time) {
+          logger.info(
+            `[\u589E\u91CF] \u6587\u6863\u6709\u66F4\u65B0: [${freshNode.title}] (${cachedNode.obj_edit_time} \u2192 ${freshNode.obj_edit_time})`
+          );
+          contentChanged.push(freshNode);
+        } else if (freshNode.obj_edit_time && !cachedNode.obj_edit_time) {
+          contentChanged.push(freshNode);
+        }
+        if (freshNode.title !== cachedNode.title) {
+          logger.info(
+            `[\u589E\u91CF] \u6807\u9898\u53D8\u66F4: [${cachedNode.title}] \u2192 [${freshNode.title}]`
+          );
+        }
+        cachedByToken.set(freshNode.node_token, freshNode);
+        if (freshNode.has_child) {
+          if (!cachedNode.has_child) {
+            logger.info(`[\u589E\u91CF] \u8282\u70B9\u65B0\u589E\u5B50\u7EA7: [${freshNode.title}]`);
+            const subTree = await this.feishuClient.fetchAllWikiNodesRecursive(
+              this.spaceId,
+              freshNode.node_token
+            );
+            this.apiCallCount++;
+            added.push(...subTree);
+          } else {
+            await this.diffLevel(
+              freshNode.node_token,
+              cachedByParent,
+              cachedByToken,
+              added,
+              deleted,
+              contentChanged
+            );
+          }
+        }
+      }
+    }
+    for (const cachedChild of cachedChildren) {
+      if (!freshTokenSet.has(cachedChild.node_token)) {
+        logger.info(`[\u589E\u91CF] \u8282\u70B9\u5DF2\u5220\u9664: [${cachedChild.title}] (${cachedChild.node_token})`);
+        deleted.push(cachedChild.node_token);
+        this.collectDescendantTokens(cachedChild.node_token, cachedByParent, deleted);
+      }
+    }
+  }
+  /**
+   * 拉取某个父节点下的所有子节点（处理分页）
+   */
+  async fetchAllNodesForParent(parentNodeToken) {
+    const allNodes = [];
+    let pageToken = "";
+    let hasMore = true;
+    let pageCount = 0;
+    while (hasMore) {
+      pageCount++;
+      if (pageCount > CONSTANTS.MAX_PAGES_PER_LEVEL) {
+        logger.warn(
+          `[\u589E\u91CF] \u5206\u9875\u6570\u8D85\u8FC7\u5B89\u5168\u9600 ${CONSTANTS.MAX_PAGES_PER_LEVEL}\uFF0C\u505C\u6B62\u62C9\u53D6 (parent: ${parentNodeToken || "root"})`
+        );
+        break;
+      }
+      const data = await this.feishuClient.fetchWikiNodes(
+        this.spaceId,
+        pageToken || void 0,
+        parentNodeToken
+      );
+      this.apiCallCount++;
+      if (data.items) {
+        allNodes.push(...data.items);
+      }
+      hasMore = data.has_more;
+      pageToken = data.page_token;
+    }
+    return allNodes;
+  }
+  /**
+   * 递归收集某个节点的所有子孙 token（用于级联删除）
+   */
+  collectDescendantTokens(nodeToken, cachedByParent, result) {
+    const children = cachedByParent.get(nodeToken) || [];
+    for (const child of children) {
+      result.push(child.node_token);
+      this.collectDescendantTokens(child.node_token, cachedByParent, result);
+    }
+  }
+  /**
+   * 将增量变更合并进缓存，构建完整的节点列表
+   */
+  buildMergedTree(originalCachedNodes, updatedByToken, addedNodes, deletedTokens) {
+    const deletedSet = new Set(deletedTokens);
+    const surviving = originalCachedNodes.filter((n) => !deletedSet.has(n.node_token)).map((n) => updatedByToken.get(n.node_token) || n);
+    const existingTokens = new Set(surviving.map((n) => n.node_token));
+    const uniqueAdded = addedNodes.filter((n) => !existingTokens.has(n.node_token));
+    return [...surviving, ...uniqueAdded];
+  }
+};
+
 // src/utils/fileWriteStrategy.ts
 var BOUNDARY_START = "<!-- LARKSYNC:START -->";
 var BOUNDARY_END = "<!-- LARKSYNC:END -->";
@@ -16184,6 +16375,8 @@ ${BOUNDARY_END}`;
 var SyncEngine = class {
   constructor() {
     this.isSyncing = false;
+    this._onProgress = new vscode6.EventEmitter();
+    this.onProgress = this._onProgress.event;
   }
   get syncActive() {
     return this.isSyncing;
@@ -16218,8 +16411,9 @@ var SyncEngine = class {
       return;
     }
     this.isSyncing = true;
-    const syncDirName = config.get("syncDirectory") || CONSTANTS.DEFAULT_SYNC_DIR;
-    const rootUri = vscode6.Uri.joinPath(workspaceFolders[0].uri, syncDirName);
+    const configuredDir = config.get("syncDirectory");
+    const syncDirName = configuredDir !== void 0 ? configuredDir : CONSTANTS.DEFAULT_SYNC_DIR;
+    const rootUri = syncDirName ? vscode6.Uri.joinPath(workspaceFolders[0].uri, syncDirName) : workspaceFolders[0].uri;
     logger.info(`\u5F00\u59CB\u540C\u6B65 Space: ${spaceId} \u2192 ${rootUri.fsPath}`);
     this.stateManager = new StateManager(rootUri);
     this.fileManager = new FileManager(rootUri);
@@ -16234,42 +16428,93 @@ var SyncEngine = class {
         location: silent ? vscode6.ProgressLocation.Window : vscode6.ProgressLocation.Notification,
         title: "LarkSync",
         cancellable: false
-      }, async (progress) => {
+      }, async (rawProgress) => {
+        let currentPercent = 0;
+        const progress = {
+          report: (msg) => {
+            rawProgress.report({ message: msg.message, increment: msg.increment });
+            if (msg.message || msg.increment) {
+              if (msg.increment) currentPercent += msg.increment;
+              const pct = Math.min(Math.round(currentPercent), 100);
+              this._onProgress.fire({
+                type: msg.type || "progress",
+                message: msg.message || "Syncing...",
+                percent: pct
+              });
+            }
+          }
+        };
+        this._onProgress.fire({ type: "start", message: "Initializing sync...", percent: 0 });
         let nodes = [];
         const deleteOrphans = config.get("deleteOrphanFiles") ?? true;
-        const mustFetchFreshTree = deleteOrphans || forceFullTree;
-        if (!mustFetchFreshTree) {
+        let treeIsComplete = false;
+        if (forceFullTree) {
+          logger.info("\u5F3A\u5236\u5168\u91CF\u62C9\u53D6\u76EE\u5F55\u6811...");
+          progress.report({ message: "\u6B63\u5728\u4ECE\u98DE\u4E66\u62C9\u53D6\u5B8C\u6574\u76EE\u5F55\u6811..." });
+          nodes = await feishuClient.fetchAllWikiNodesRecursive(spaceId);
+          treeIsComplete = true;
+        } else {
+          let cachedNodes = [];
           try {
             const cacheData = await vscode6.workspace.fs.readFile(treeCacheUri);
-            nodes = JSON.parse(Buffer.from(cacheData).toString("utf-8"));
-            logger.info(`\u4ECE\u7F13\u5B58\u52A0\u8F7D\u4E86 ${nodes.length} \u4E2A\u8282\u70B9\u3002`);
-            progress.report({ message: "\u4ECE\u7F13\u5B58\u52A0\u8F7D\u76EE\u5F55\u6811..." });
+            cachedNodes = JSON.parse(Buffer.from(cacheData).toString("utf-8"));
+            logger.info(`\u4ECE\u7F13\u5B58\u52A0\u8F7D\u4E86 ${cachedNodes.length} \u4E2A\u8282\u70B9\u3002`);
           } catch {
-            logger.info("\u65E0\u672C\u5730\u7F13\u5B58\uFF0C\u5C06\u4ECE\u98DE\u4E66\u62C9\u53D6\u3002");
+            logger.info("\u65E0\u53EF\u7528\u672C\u5730\u7F13\u5B58\u3002");
+          }
+          if (cachedNodes.length === 0) {
+            logger.info("\u9996\u6B21\u540C\u6B65\uFF0C\u5168\u91CF\u62C9\u53D6\u76EE\u5F55\u6811...");
+            progress.report({ message: "\u9996\u6B21\u540C\u6B65\uFF0C\u6B63\u5728\u62C9\u53D6\u5B8C\u6574\u76EE\u5F55\u6811..." });
+            nodes = await feishuClient.fetchAllWikiNodesRecursive(spaceId);
+            treeIsComplete = true;
+          } else {
+            logger.info("\u6267\u884C\u589E\u91CF\u76EE\u5F55\u6811\u540C\u6B65...");
+            progress.report({ message: "\u6B63\u5728\u68C0\u6D4B\u77E5\u8BC6\u5E93\u53D8\u66F4..." });
+            const diffEngine = new TreeDiffEngine(feishuClient, spaceId);
+            const diffResult = await diffEngine.diffAndMerge(cachedNodes);
+            nodes = diffResult.mergedNodes;
+            treeIsComplete = diffResult.isTreeComplete;
+            const summary = [];
+            if (diffResult.addedNodes.length > 0) {
+              summary.push(`\u65B0\u589E ${diffResult.addedNodes.length} \u4E2A\u8282\u70B9`);
+            }
+            if (diffResult.deletedNodeTokens.length > 0) {
+              summary.push(`\u5220\u9664 ${diffResult.deletedNodeTokens.length} \u4E2A\u8282\u70B9`);
+            }
+            if (diffResult.contentChangedNodes.length > 0) {
+              summary.push(`${diffResult.contentChangedNodes.length} \u7BC7\u6587\u6863\u6709\u66F4\u65B0`);
+            }
+            if (summary.length > 0) {
+              const msg = `\u589E\u91CF\u68C0\u6D4B: ${summary.join(", ")} (${diffResult.apiCallCount} \u6B21API\u8C03\u7528)`;
+              logger.info(msg);
+              progress.report({ message: msg });
+            } else {
+              logger.info(`\u589E\u91CF\u68C0\u6D4B: \u77E5\u8BC6\u5E93\u65E0\u53D8\u66F4 (${diffResult.apiCallCount} \u6B21API\u8C03\u7528)`);
+              progress.report({ message: "\u77E5\u8BC6\u5E93\u65E0\u53D8\u66F4" });
+            }
           }
         }
-        if (nodes.length === 0 || mustFetchFreshTree) {
-          logger.info("\u4ECE\u98DE\u4E66\u62C9\u53D6\u76EE\u5F55\u6811...");
-          progress.report({ message: "\u6B63\u5728\u4ECE\u98DE\u4E66\u62C9\u53D6\u76EE\u5F55\u6811..." });
-          nodes = await feishuClient.fetchAllWikiNodesRecursive(spaceId);
-          const treeCacheContent = Buffer.from(JSON.stringify(nodes, null, 2), "utf-8");
-          await vscode6.workspace.fs.writeFile(treeCacheUri, treeCacheContent);
-          logger.info(`\u5DF2\u7F13\u5B58 ${nodes.length} \u4E2A\u8282\u70B9\u3002`);
-        }
+        const treeCacheContent = Buffer.from(JSON.stringify(nodes, null, 2), "utf-8");
+        await vscode6.workspace.fs.writeFile(treeCacheUri, treeCacheContent);
+        logger.info(`\u5DF2\u7F13\u5B58 ${nodes.length} \u4E2A\u8282\u70B9\u3002`);
         progress.report({ message: `\u51C6\u5907\u540C\u6B65 ${nodes.length} \u4E2A\u8282\u70B9...` });
         this.fileManager.setNodes(nodes);
         await this.syncNodes(nodes, progress);
-        if (deleteOrphans) {
+        if (deleteOrphans && treeIsComplete) {
           progress.report({ message: "\u6B63\u5728\u6E05\u7406\u4E91\u7AEF\u5DF2\u5220\u9664\u7684\u672C\u5730\u6587\u4EF6..." });
           await this.cleanOrphanFiles(nodes);
+        } else if (deleteOrphans && !treeIsComplete) {
+          logger.info("\u8DF3\u8FC7\u5B64\u513F\u6587\u4EF6\u6E05\u7406\uFF1A\u589E\u91CF Diff \u51FA\u9519\uFF0C\u6811\u5B8C\u6574\u6027\u672A\u4FDD\u969C\u3002");
         }
       });
       logger.info("\u540C\u6B65\u5B8C\u6210\uFF01");
+      this._onProgress.fire({ type: "complete", message: "Sync generated successfully." });
       vscode6.commands.executeCommand("larksync.refreshSidebar");
       if (!silent) {
         vscode6.window.showInformationMessage("LarkSync: \u540C\u6B65\u5B8C\u6210\uFF01");
       }
     } catch (error) {
+      this._onProgress.fire({ type: "error", message: error.message });
       logger.error(`\u540C\u6B65\u9519\u8BEF: ${error.message}`, error);
       if (!silent) {
         vscode6.window.showErrorMessage(`LarkSync \u9519\u8BEF: ${error.message}`);
@@ -16296,8 +16541,26 @@ var SyncEngine = class {
       const fileExists = await this.fileManager.fileExists(targetUri);
       const cloudMeta = cloudMetas.get(doc.obj_token);
       if (fileExists && this.stateManager.getDocState(doc.obj_token)) {
-        if (this.stateManager.isDocUnchanged(doc.obj_token, cloudMeta?.latest_modify_time)) {
-          logger.info(`\u8DF3\u8FC7 (\u672A\u53D8\u66F4): [${doc.title}]`);
+        const cloudUnchanged = this.stateManager.isDocUnchanged(doc.obj_token, cloudMeta?.latest_modify_time);
+        let isModifiedLocally = false;
+        try {
+          const stats = await vscode6.workspace.fs.stat(targetUri);
+          const state = this.stateManager.getDocState(doc.obj_token);
+          if (state && stats.mtime - state.lastSyncTime > 2e3) {
+            isModifiedLocally = true;
+          }
+        } catch {
+        }
+        if (cloudUnchanged) {
+          if (isModifiedLocally) {
+            logger.info(`\u8DF3\u8FC7 (\u672C\u5730\u53D8\u66F4, \u8FDC\u7AEF\u672A\u53D8): [${doc.title}]`);
+          } else {
+            logger.info(`\u8DF3\u8FC7 (\u53CC\u7AEF\u672A\u53D8): [${doc.title}]`);
+          }
+          return;
+        } else if (isModifiedLocally) {
+          logger.warn(`\u51B2\u7A81\u8DF3\u8FC7: [${doc.title}] \u672C\u5730\u5DF2\u88AB\u4FEE\u6539\uFF0C\u6682\u505C\u62C9\u53D6\u4EE5\u4FDD\u62A4\u60A8\u7684\u6570\u636E\u3002`);
+          vscode6.window.showWarningMessage(`LarkSync: [${doc.title}] \u5B58\u5728\u51B2\u7A81\uFF01\u672C\u5730\u4FEE\u6539\u5DF2\u4FDD\u7559\uFF0C\u6682\u65F6\u505C\u6B62\u4E91\u7AEF\u8986\u76D6\u3002`);
           return;
         }
       }
@@ -16416,8 +16679,9 @@ var SyncEngine = class {
 // src/treeProvider.ts
 var vscode7 = __toESM(require("vscode"));
 var SyncTreeProvider = class {
-  constructor(syncEngine2) {
+  constructor(syncEngine2, decorationProvider2) {
     this.syncEngine = syncEngine2;
+    this.decorationProvider = decorationProvider2;
     this._onDidChangeTreeData = new vscode7.EventEmitter();
     this.onDidChangeTreeData = this._onDidChangeTreeData.event;
   }
@@ -16427,14 +16691,30 @@ var SyncTreeProvider = class {
   getTreeItem(element) {
     return element;
   }
+  // 格式化时间显示
+  formatTime(timestamp) {
+    const date = new Date(timestamp);
+    const now = /* @__PURE__ */ new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1e3 * 60 * 60 * 24));
+    const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (diffDays === 0 && date.getDate() === now.getDate()) {
+      return `\u4ECA\u5929 ${timeStr}`;
+    } else if (diffDays === 1 || diffDays === 0 && date.getDate() !== now.getDate()) {
+      return `\u6628\u5929 ${timeStr}`;
+    } else {
+      return `${date.getMonth() + 1}-${date.getDate()} ${timeStr}`;
+    }
+  }
   async getChildren(element) {
     const workspaceFolders = vscode7.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
       return [];
     }
     const config = vscode7.workspace.getConfiguration("larksync");
-    const syncDirName = config.get("syncDirectory") || CONSTANTS.DEFAULT_SYNC_DIR;
-    const rootUri = vscode7.Uri.joinPath(workspaceFolders[0].uri, syncDirName);
+    const configuredDir = config.get("syncDirectory");
+    const syncDirName = configuredDir !== void 0 ? configuredDir : CONSTANTS.DEFAULT_SYNC_DIR;
+    const rootUri = syncDirName ? vscode7.Uri.joinPath(workspaceFolders[0].uri, syncDirName) : workspaceFolders[0].uri;
     if (!element) {
       try {
         await vscode7.workspace.fs.stat(rootUri);
@@ -16450,9 +16730,11 @@ var SyncTreeProvider = class {
     const stateManager = new StateManager(rootUri);
     await stateManager.loadState();
     const stateMapping = stateManager.getReverseMapping();
+    const TOLERANCE_MS = 2e3;
     try {
       const entries = await vscode7.workspace.fs.readDirectory(targetUri);
       const nodes = [];
+      const decorationEntries = [];
       for (const [name, fileType] of entries) {
         if (name.startsWith(".")) continue;
         const childUri = vscode7.Uri.joinPath(targetUri, name);
@@ -16469,13 +16751,30 @@ var SyncTreeProvider = class {
           const state = stateMapping.get(relativePath);
           let description = "";
           let tooltip = childUri.fsPath;
+          let nodeStatus = 0;
+          let statusBadge = null;
           if (state) {
-            const date = new Date(state.lastSyncTime);
-            description = `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-            tooltip = `Local: ${childUri.fsPath}
+            try {
+              const stats = await vscode7.workspace.fs.stat(childUri);
+              const mtime = stats.mtime;
+              const isModifiedLocally = mtime - state.lastSyncTime > TOLERANCE_MS;
+              if (isModifiedLocally) {
+                description = `\u672C\u5730\u4FEE\u6539: ${this.formatTime(mtime)}`;
+                statusBadge = "local_modified" /* LOCAL_MODIFIED */;
+              } else {
+                description = `\u5DF2\u540C\u6B65: ${this.formatTime(state.lastSyncTime)}`;
+                statusBadge = "synced" /* SYNCED */;
+              }
+              tooltip = `Local: ${childUri.fsPath}
 Cloud ID: ${state.documentId}`;
+            } catch {
+            }
           } else if (childUri.fsPath.endsWith(".md")) {
-            description = "\u5F85\u540C\u6B65";
+            description = "\u8131\u673A\u6587\u4EF6 (\u672A\u540C\u6B65)";
+            statusBadge = "untracked" /* UNTRACKED */;
+          }
+          if (statusBadge && this.decorationProvider) {
+            decorationEntries.push({ uri: childUri, status: statusBadge });
           }
           nodes.push(new SyncNode(
             name,
@@ -16491,6 +16790,9 @@ Cloud ID: ${state.documentId}`;
           ));
         }
       }
+      if (this.decorationProvider && decorationEntries.length > 0) {
+        this.decorationProvider.setStatuses(decorationEntries);
+      }
       return nodes.sort((a, b) => {
         const aIsDir = a.collapsibleState !== vscode7.TreeItemCollapsibleState.None;
         const bIsDir = b.collapsibleState !== vscode7.TreeItemCollapsibleState.None;
@@ -16498,7 +16800,8 @@ Cloud ID: ${state.documentId}`;
         if (!aIsDir && bIsDir) return 1;
         return a.label.toString().localeCompare(b.label.toString());
       });
-    } catch {
+    } catch (e) {
+      console.error("LarkSync Tree Error:", e);
       return [];
     }
   }
@@ -16557,29 +16860,203 @@ var SyncFileDecorationProvider = class {
       return void 0;
     }
     switch (status) {
+      case "local_modified" /* LOCAL_MODIFIED */:
+        return {
+          badge: "M",
+          color: new vscode8.ThemeColor("gitDecoration.modifiedResourceForeground"),
+          tooltip: "\u672C\u5730\u5DF2\u88AB\u4FEE\u6539"
+        };
+      case "cloud_updated" /* CLOUD_UPDATED */:
+        return {
+          badge: "U",
+          color: new vscode8.ThemeColor("gitDecoration.untrackedResourceForeground"),
+          // Often blue/green
+          tooltip: "\u4E91\u7AEF\u6709\u65B0\u7248\u672C"
+        };
+      case "conflict" /* CONFLICT */:
+        return {
+          badge: "C",
+          color: new vscode8.ThemeColor("gitDecoration.conflictingResourceForeground"),
+          tooltip: "\u53CC\u7AEF\u5747\u88AB\u4FEE\u6539\uFF0C\u5B58\u5728\u51B2\u7A81\uFF01"
+        };
+      case "untracked" /* UNTRACKED */:
+        return {
+          badge: "U",
+          color: new vscode8.ThemeColor("gitDecoration.untrackedResourceForeground"),
+          tooltip: "\u672C\u5730\u8131\u673A\u6587\u4EF6"
+        };
       case "added" /* ADDED */:
         return {
           badge: "A",
           color: new vscode8.ThemeColor("gitDecoration.addedResourceForeground"),
-          tooltip: "\u4E91\u7AEF\u65B0\u589E\uFF0C\u5C1A\u672A\u540C\u6B65\u5230\u672C\u5730"
-        };
-      case "modified" /* MODIFIED */:
-        return {
-          badge: "M",
-          color: new vscode8.ThemeColor("gitDecoration.modifiedResourceForeground"),
-          tooltip: "\u4E91\u7AEF\u5DF2\u66F4\u65B0\uFF0C\u672C\u5730\u7248\u672C\u843D\u540E"
+          tooltip: "\u8FDC\u7AEF\u65B0\u589E\u6587\u4EF6"
         };
       case "deleted" /* DELETED */:
         return {
           badge: "D",
           color: new vscode8.ThemeColor("gitDecoration.deletedResourceForeground"),
-          tooltip: "\u4E91\u7AEF\u5DF2\u5220\u9664\uFF0C\u672C\u5730\u4ECD\u4FDD\u7559"
+          tooltip: "\u8FDC\u7AEF\u5DF2\u5220\u9664"
         };
       default:
         return void 0;
     }
   }
 };
+
+// src/ui/dashboardPanel.ts
+var vscode9 = __toESM(require("vscode"));
+var DashboardPanel = class _DashboardPanel {
+  constructor(panel, extensionUri, syncEngine2) {
+    this._disposables = [];
+    this._panel = panel;
+    this._extensionUri = extensionUri;
+    this.syncEngine = syncEngine2;
+    this._update();
+    this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+    this._panel.webview.onDidReceiveMessage(
+      (message) => this._handleMessage(message),
+      null,
+      this._disposables
+    );
+    const progressDisposable = this.syncEngine.onProgress((status) => {
+      if (this._panel && this._panel.webview) {
+        this._panel.webview.postMessage({ command: "syncProgress", payload: status });
+      }
+    });
+    this._disposables.push(progressDisposable);
+  }
+  static createOrShow(extensionUri, syncEngine2) {
+    const column = vscode9.window.activeTextEditor ? vscode9.window.activeTextEditor.viewColumn : void 0;
+    if (_DashboardPanel.currentPanel) {
+      _DashboardPanel.currentPanel._panel.reveal(column);
+      return;
+    }
+    const panel = vscode9.window.createWebviewPanel(
+      "larksyncDashboard",
+      "LarkSync Dashboard",
+      column || vscode9.ViewColumn.One,
+      {
+        enableScripts: true,
+        localResourceRoots: [
+          vscode9.Uri.joinPath(extensionUri, "webview-ui", "build")
+        ],
+        retainContextWhenHidden: true
+        // Keep React state alive
+      }
+    );
+    _DashboardPanel.currentPanel = new _DashboardPanel(panel, extensionUri, syncEngine2);
+  }
+  async _handleMessage(message) {
+    const command = message.command || message.type;
+    const payload = message.payload || message.data;
+    switch (command) {
+      case "ping":
+        this._panel.webview.postMessage({ command: "pong", payload: "Hello from VS Code" });
+        return;
+      case "getHealth":
+        this.sendHealthData();
+        return;
+      case "openSettings":
+        vscode9.commands.executeCommand("workbench.action.openSettings", "@ext:kevintung.larksync");
+        return;
+      case "openFolder":
+        vscode9.commands.executeCommand("larksync.openSyncFolder");
+        return;
+      case "importCacheFiles":
+        vscode9.commands.executeCommand("larksync.importCacheFiles");
+        return;
+      case "startSync":
+        vscode9.commands.executeCommand("larksync.startSync");
+        return;
+      case "login":
+        vscode9.commands.executeCommand("larksync.login");
+        const pollTimer = setInterval(() => {
+          if (feishuClient.isLoggedIn()) {
+            clearInterval(pollTimer);
+            this.sendHealthData();
+          }
+        }, 1e3);
+        setTimeout(() => clearInterval(pollTimer), 6e4);
+        return;
+      case "saveConfig":
+        if (payload && payload.key && typeof payload.value === "string") {
+          vscode9.workspace.getConfiguration().update(payload.key, payload.value, vscode9.ConfigurationTarget.Workspace);
+        }
+        return;
+    }
+  }
+  sendHealthData() {
+    const config = vscode9.workspace.getConfiguration("larksync");
+    const hasAppId = !!config.get("appId");
+    const hasAppSecret = !!config.get("appSecret");
+    const spaceId = config.get("spaceId");
+    const syncDir = config.get("syncDirectory");
+    const tokenStatus = feishuClient.isLoggedIn();
+    let lastSync = null;
+    try {
+      if (this.syncEngine && this.syncEngine.stateManager) {
+        const state = this.syncEngine.stateManager.state;
+        if (state) {
+          const times = Object.values(state).map((e) => e.lastSyncTime || 0);
+          if (times.length > 0) {
+            lastSync = Math.max(...times);
+          }
+        }
+      }
+    } catch (e) {
+    }
+    this._panel.webview.postMessage({
+      command: "healthData",
+      payload: { hasAppId, hasAppSecret, tokenValid: tokenStatus, spaceId, syncDir, lastSync }
+    });
+  }
+  _update() {
+    const webview = this._panel.webview;
+    this._panel.webview.html = this._getHtmlForWebview(webview);
+  }
+  _getHtmlForWebview(webview) {
+    const scriptUri = webview.asWebviewUri(vscode9.Uri.joinPath(this._extensionUri, "webview-ui", "build", "assets", "index.js"));
+    const styleUri = webview.asWebviewUri(vscode9.Uri.joinPath(this._extensionUri, "webview-ui", "build", "assets", "index.css"));
+    const nonce = getNonce();
+    return `<!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <!--
+                    Use a content security policy to only allow loading images from https or from our extension directory,
+                    and only allow scripts that have a specific nonce.
+                -->
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} https: data:; connect-src https:;">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <link href="${styleUri}" rel="stylesheet">
+                <title>LarkSync Dashboard</title>
+            </head>
+            <body>
+                <div id="root"></div>
+                <!-- React App Entry -->
+                <script nonce="${nonce}" type="module" src="${scriptUri}"></script>
+            </body>
+            </html>`;
+  }
+  dispose() {
+    _DashboardPanel.currentPanel = void 0;
+    this._panel.dispose();
+    while (this._disposables.length) {
+      const x = this._disposables.pop();
+      if (x) {
+        x.dispose();
+      }
+    }
+  }
+};
+function getNonce() {
+  let text = "";
+  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}
 
 // src/auth/tokenStore.ts
 var KEY_USER_TOKEN = "larksync.userAccessToken";
@@ -16636,37 +17113,17 @@ var TokenStore = class {
 };
 
 // src/auth/oauthManager.ts
-var vscode9 = __toESM(require("vscode"));
+var vscode10 = __toESM(require("vscode"));
 var crypto2 = __toESM(require("crypto"));
+var http3 = __toESM(require("http"));
+var import_url2 = require("url");
 var AUTH_TIMEOUT_SEC = 120;
+var LOCAL_PORT = 31415;
 var OAuthManager = class {
   constructor(tokenStore) {
     /** PKCE code_verifier（登录过程中临时持有） */
     this.pendingVerifier = null;
-    /** 授权回调 resolve 函数 */
-    this.pendingResolve = null;
-    this.pendingReject = null;
     this.tokenStore = tokenStore;
-  }
-  // ========================================================
-  // URI Handler — 接收飞书授权回调
-  // ========================================================
-  /**
-   * 处理 vscode://larksync/callback?code=xxx 回调
-   */
-  handleUri(uri) {
-    const query = new URLSearchParams(uri.query);
-    const code = query.get("code");
-    if (code && this.pendingResolve) {
-      logger.info("\u6536\u5230 OAuth \u6388\u6743\u7801\u56DE\u8C03\u3002");
-      this.pendingResolve(code);
-      this.pendingResolve = null;
-      this.pendingReject = null;
-    } else if (this.pendingReject) {
-      this.pendingReject(new Error("\u6388\u6743\u56DE\u8C03\u4E2D\u672A\u5305\u542B code \u53C2\u6570\u3002"));
-      this.pendingResolve = null;
-      this.pendingReject = null;
-    }
   }
   // ========================================================
   // 登录流程
@@ -16675,29 +17132,31 @@ var OAuthManager = class {
    * 发起 OAuth 2.0 + PKCE 登录
    */
   async login() {
-    const config = vscode9.workspace.getConfiguration("larksync");
+    const config = vscode10.workspace.getConfiguration("larksync");
     const appId = config.get("appId");
     if (!appId) {
-      vscode9.window.showErrorMessage("LarkSync: \u8BF7\u5148\u5728\u8BBE\u7F6E\u4E2D\u914D\u7F6E App ID\u3002");
+      vscode10.window.showErrorMessage("LarkSync: \u8BF7\u5148\u5728\u8BBE\u7F6E\u4E2D\u914D\u7F6E App ID\u3002");
       return false;
     }
     try {
       const codeVerifier = this.generateCodeVerifier();
       const codeChallenge = this.generateCodeChallenge(codeVerifier);
       this.pendingVerifier = codeVerifier;
-      const redirectUri = `${vscode9.env.uriScheme}://kevintu.larksync/callback`;
+      const redirectUri = `http://127.0.0.1:${LOCAL_PORT}/callback`;
       const state = crypto2.randomBytes(16).toString("hex");
       const authUrl = `${CONSTANTS.FEISHU_API_BASE}/authen/v1/authorize?app_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
-      logger.info("\u6253\u5F00\u98DE\u4E66\u6388\u6743\u9875\u9762...");
-      await vscode9.env.openExternal(vscode9.Uri.parse(authUrl));
-      const code = await this.waitForAuthCode();
+      logger.info("\u542F\u52A8\u672C\u5730 HTTP \u76D1\u542C\uFF0C\u5E76\u6253\u5F00\u98DE\u4E66\u6388\u6743\u9875\u9762...");
+      const [code] = await Promise.all([
+        this.startLocalServerAndGetCode(LOCAL_PORT),
+        vscode10.env.openExternal(vscode10.Uri.parse(authUrl))
+      ]);
       await this.exchangeCodeForToken(code, codeVerifier, redirectUri);
-      vscode9.window.showInformationMessage("LarkSync: \u767B\u5F55\u6210\u529F\uFF01");
+      vscode10.window.showInformationMessage("LarkSync: \u767B\u5F55\u6210\u529F\uFF01");
       logger.info("OAuth \u767B\u5F55\u6210\u529F\u3002");
       return true;
     } catch (err) {
       logger.error(`OAuth \u767B\u5F55\u5931\u8D25: ${err.message}`);
-      vscode9.window.showErrorMessage(`LarkSync \u767B\u5F55\u5931\u8D25: ${err.message}`);
+      vscode10.window.showErrorMessage(`LarkSync \u767B\u5F55\u5931\u8D25: ${err.message}`);
       return false;
     } finally {
       this.pendingVerifier = null;
@@ -16708,7 +17167,7 @@ var OAuthManager = class {
    */
   async logout() {
     await this.tokenStore.clearAll();
-    vscode9.window.showInformationMessage("LarkSync: \u5DF2\u767B\u51FA\u3002");
+    vscode10.window.showInformationMessage("LarkSync: \u5DF2\u767B\u51FA\u3002");
     logger.info("\u7528\u6237\u5DF2\u767B\u51FA\uFF0C\u51ED\u8BC1\u5DF2\u6E05\u9664\u3002");
   }
   // ========================================================
@@ -16737,7 +17196,7 @@ var OAuthManager = class {
   async refreshUserToken() {
     const refreshToken = await this.tokenStore.getRefreshToken();
     if (!refreshToken) return false;
-    const config = vscode9.workspace.getConfiguration("larksync");
+    const config = vscode10.workspace.getConfiguration("larksync");
     const appId = config.get("appId") || "";
     const appSecret = config.get("appSecret") || "";
     try {
@@ -16745,7 +17204,9 @@ var OAuthManager = class {
         `${CONSTANTS.FEISHU_API_BASE}/authen/v1/oidc/refresh_access_token`,
         {
           grant_type: "refresh_token",
-          refresh_token: refreshToken
+          refresh_token: refreshToken,
+          app_id: appId,
+          app_secret: appSecret
         },
         {
           headers: {
@@ -16775,18 +17236,55 @@ var OAuthManager = class {
   // 内部辅助方法
   // ========================================================
   /**
-   * 等待授权回调中的 code（带超时）
+   * 启动本地临时 HTTP 服务器接收回调
    */
-  waitForAuthCode() {
+  startLocalServerAndGetCode(port) {
     return new Promise((resolve, reject) => {
-      this.pendingResolve = resolve;
-      this.pendingReject = reject;
-      setTimeout(() => {
-        if (this.pendingReject) {
-          this.pendingReject(new Error(`\u6388\u6743\u8D85\u65F6\uFF08${AUTH_TIMEOUT_SEC}\u79D2\u5185\u672A\u6536\u5230\u56DE\u8C03\uFF09`));
-          this.pendingResolve = null;
-          this.pendingReject = null;
+      const server = http3.createServer((req, res) => {
+        try {
+          const url2 = new import_url2.URL(req.url || "/", `http://127.0.0.1:${port}`);
+          if (url2.pathname === "/callback") {
+            const code = url2.searchParams.get("code");
+            if (code) {
+              res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+              res.end(`
+                                <html>
+                                <head><title>LarkSync \u767B\u5F55\u6210\u529F</title></head>
+                                <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #f0f2f5;">
+                                    <div style="text-align: center; padding: 40px; background: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                        <h1 style="color: #4CAF50;">\u{1F389} \u767B\u5F55\u6210\u529F\uFF01</h1>
+                                        <p style="color: #666; font-size: 16px;">\u6388\u6743\u7801\u5DF2\u5B89\u5168\u63A5\u6536\u3002\u60A8\u53EF\u4EE5\u76F4\u63A5\u5173\u95ED\u6B64\u7F51\u9875\uFF0C\u8FD4\u56DE VS Code \u7EE7\u7EED\u4F7F\u7528\u4E86\u3002</p>
+                                    </div>
+                                    <script>setTimeout(() => window.close(), 3000);</script>
+                                </body>
+                                </html>
+                            `);
+              resolve(code);
+            } else {
+              res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
+              res.end("<h1>LarkSync \u767B\u5F55\u5931\u8D25</h1><p>\u672A\u5728\u56DE\u8C03\u4E2D\u627E\u5230\u6388\u6743\u7801 (code) \u53C2\u6570\u3002</p>");
+              reject(new Error("\u672A\u5728\u56DE\u8C03\u4E2D\u627E\u5230\u6388\u6743\u7801"));
+            }
+            setTimeout(() => server.close(), 100);
+          } else {
+            res.writeHead(404);
+            res.end("Not Found");
+          }
+        } catch (err) {
+          res.writeHead(500);
+          res.end("Internal Server Error");
         }
+      });
+      server.on("error", (err) => {
+        logger.error(`\u672C\u5730\u6388\u6743\u670D\u52A1\u5668\u9519\u8BEF: ${err.message}`);
+        reject(err);
+      });
+      server.listen(port, "127.0.0.1", () => {
+        logger.info(`LarkSync \u672C\u5730\u6388\u6743\u670D\u52A1\u6B63\u5728\u76D1\u542C http://127.0.0.1:${port}`);
+      });
+      setTimeout(() => {
+        server.close();
+        reject(new Error(`\u7B49\u5F85\u6388\u6743\u56DE\u8C03\u8D85\u65F6\uFF08${AUTH_TIMEOUT_SEC}\u79D2\uFF09`));
       }, AUTH_TIMEOUT_SEC * 1e3);
     });
   }
@@ -16794,7 +17292,7 @@ var OAuthManager = class {
    * 用授权码交换 user_access_token
    */
   async exchangeCodeForToken(code, codeVerifier, redirectUri) {
-    const config = vscode9.workspace.getConfiguration("larksync");
+    const config = vscode10.workspace.getConfiguration("larksync");
     const appId = config.get("appId") || "";
     const appSecret = config.get("appSecret") || "";
     const response = await axios_default.post(
@@ -16803,7 +17301,9 @@ var OAuthManager = class {
         grant_type: "authorization_code",
         code,
         code_verifier: codeVerifier,
-        redirect_uri: redirectUri
+        redirect_uri: redirectUri,
+        app_id: appId,
+        app_secret: appSecret
       },
       {
         headers: {
@@ -16860,50 +17360,131 @@ function activate(context) {
   try {
     logger.info("LarkSync extension is now active!");
     syncEngine = new SyncEngine();
-    treeProvider = new SyncTreeProvider(syncEngine);
-    context.subscriptions.push(
-      vscode10.window.registerTreeDataProvider("larksyncSidebar", treeProvider)
-    );
     decorationProvider = new SyncFileDecorationProvider();
     context.subscriptions.push(
-      vscode10.window.registerFileDecorationProvider(decorationProvider)
+      vscode11.window.registerFileDecorationProvider(decorationProvider)
     );
-    statusBarItem = vscode10.window.createStatusBarItem(vscode10.StatusBarAlignment.Right, 100);
+    treeProvider = new SyncTreeProvider(syncEngine, decorationProvider);
+    context.subscriptions.push(
+      vscode11.window.registerTreeDataProvider("larksyncSidebar", treeProvider)
+    );
+    statusBarItem = vscode11.window.createStatusBarItem(vscode11.StatusBarAlignment.Right, 100);
     statusBarItem.command = "larksync.startSync";
     statusBarItem.text = "$(sync) LarkSync";
     statusBarItem.tooltip = "Click to force sync Feishu Docs";
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
-    context.subscriptions.push(vscode10.commands.registerCommand("larksync.startSync", async () => {
+    context.subscriptions.push(vscode11.commands.registerCommand("larksync.startSync", async () => {
       if (syncEngine.syncActive) {
-        vscode10.window.showInformationMessage("LarkSync is already syncing...");
+        vscode11.window.showInformationMessage("LarkSync is already syncing...");
         return;
+      }
+      const workspaceFolders = vscode11.workspace.workspaceFolders;
+      if (workspaceFolders && workspaceFolders.length > 0) {
+        const config = vscode11.workspace.getConfiguration("larksync");
+        const configuredDir = config.get("syncDirectory");
+        const syncDirName = configuredDir !== void 0 ? configuredDir : CONSTANTS.DEFAULT_SYNC_DIR;
+        const rootUri = syncDirName ? vscode11.Uri.joinPath(workspaceFolders[0].uri, syncDirName) : workspaceFolders[0].uri;
+        const treeUri = vscode11.Uri.joinPath(rootUri, CONSTANTS.TREE_CACHE_FILE_NAME);
+        const stateUri = vscode11.Uri.joinPath(rootUri, CONSTANTS.STATE_FILE_NAME);
+        try {
+          await vscode11.workspace.fs.stat(treeUri);
+        } catch {
+          const choice = await vscode11.window.showWarningMessage(
+            "\u672A\u68C0\u6D4B\u5230\u672C\u5730\u540C\u6B65\u7F13\u5B58 (.larksync_tree.json)\u3002\u9996\u6B21\u5B8C\u6574\u62C9\u53D6\u53EF\u80FD\u975E\u5E38\u8017\u65F6\uFF0C\u4E14\u4F1A\u91CD\u65B0\u4E0B\u8F7D\u6240\u6709\u56FE\u7247\u3002\u5982\u679C\u4F60\u5176\u5B9E\u5DF2\u7ECF\u6709\u4E4B\u524D\u7684\u7F13\u5B58\u6587\u4EF6\u5907\u4EFD\uFF0C\u8BF7\u70B9\u51FB\u5BFC\u5165\uFF0C\u907F\u514D\u91CD\u590D\u5DE5\u4F5C\u3002\u662F\u5426\u4ECD\u8981\u5F00\u59CB\u5168\u65B0\u5168\u91CF\u540C\u6B65\uFF1F",
+            { modal: true },
+            "\u5BFC\u5165\u7F13\u5B58",
+            "\u5168\u65B0\u5168\u91CF\u540C\u6B65"
+          );
+          if (choice === "\u5BFC\u5165\u7F13\u5B58") {
+            vscode11.commands.executeCommand("larksync.importCacheFiles");
+            return;
+          } else if (choice !== "\u5168\u65B0\u5168\u91CF\u540C\u6B65") {
+            return;
+          }
+        }
       }
       statusBarItem.text = "$(sync~spin) LarkSync Syncing";
       await syncEngine.startSync(false, false);
       statusBarItem.text = "$(sync) LarkSync";
     }));
-    context.subscriptions.push(vscode10.commands.registerCommand("larksync.forceSyncTree", async () => {
+    context.subscriptions.push(vscode11.commands.registerCommand("larksync.forceSyncTree", async () => {
       if (syncEngine.syncActive) {
-        vscode10.window.showInformationMessage("LarkSync is already syncing...");
+        vscode11.window.showInformationMessage("LarkSync is already syncing...");
         return;
       }
       statusBarItem.text = "$(sync~spin) LarkSync Fetching Tree...";
       await syncEngine.startSync(false, true);
       statusBarItem.text = "$(sync) LarkSync";
     }));
-    context.subscriptions.push(vscode10.commands.registerCommand("larksync.openSyncFolder", () => {
-      const workspaceFolders = vscode10.workspace.workspaceFolders;
-      if (workspaceFolders && workspaceFolders.length > 0) {
-        const config = vscode10.workspace.getConfiguration("larksync");
-        const syncDirName = config.get("syncDir", CONSTANTS.DEFAULT_SYNC_DIR);
-        const targetUri = vscode10.Uri.joinPath(workspaceFolders[0].uri, syncDirName);
-        vscode10.commands.executeCommand("revealFileInOS", targetUri);
-      } else {
-        vscode10.window.showErrorMessage("LarkSync: \u6CA1\u6709\u6253\u5F00\u7684\u5DE5\u4F5C\u533A\u3002");
+    context.subscriptions.push(vscode11.commands.registerCommand("larksync.importCacheFiles", async () => {
+      const workspaceFolders = vscode11.workspace.workspaceFolders;
+      if (!workspaceFolders || workspaceFolders.length === 0) {
+        vscode11.window.showErrorMessage("LarkSync: \u8BF7\u5148\u6253\u5F00\u4E00\u4E2A\u672C\u5730\u5DE5\u4F5C\u533A\u76EE\u5F55\u3002");
+        return;
+      }
+      const config = vscode11.workspace.getConfiguration("larksync");
+      const configuredDir = config.get("syncDirectory");
+      const syncDirName = configuredDir !== void 0 ? configuredDir : CONSTANTS.DEFAULT_SYNC_DIR;
+      const rootUri = syncDirName ? vscode11.Uri.joinPath(workspaceFolders[0].uri, syncDirName) : workspaceFolders[0].uri;
+      const selectedUris = await vscode11.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: true,
+        filters: { "JSON \u7F13\u5B58\u6587\u4EF6": ["json"] },
+        openLabel: "\u9009\u62E9\u5BFC\u51FA\u7684 JSON \u6587\u4EF6"
+      });
+      if (selectedUris && selectedUris.length > 0) {
+        try {
+          let importedCount = 0;
+          for (const uri of selectedUris) {
+            const filename = uri.fsPath.split(/[/\\]/).pop();
+            if (filename === CONSTANTS.TREE_CACHE_FILE_NAME || filename === CONSTANTS.STATE_FILE_NAME) {
+              const destUri = vscode11.Uri.joinPath(rootUri, filename);
+              await vscode11.workspace.fs.copy(uri, destUri, { overwrite: true });
+              importedCount++;
+            } else {
+              vscode11.window.showWarningMessage(`\u5DF2\u5FFD\u7565: [${filename}], \u56E0\u4E3A\u540D\u5B57\u4E0D\u5339\u914D\u3002\u8BF7\u9009\u62E9 .larksync_tree.json \u6216 .larksync_state.json\u3002`);
+            }
+          }
+          if (importedCount > 0) {
+            vscode11.window.showInformationMessage(`\u6210\u529F\u5BFC\u5165 ${importedCount} \u4E2A\u7F13\u5B58\u6587\u4EF6\uFF01\u60A8\u53EF\u4EE5\u76F4\u63A5\u5F00\u59CB\u6781\u901F\u540C\u6B65\u4E86\u3002`);
+            if (treeProvider) treeProvider.refresh();
+          }
+        } catch (err) {
+          vscode11.window.showErrorMessage(`\u5BFC\u5165\u7F13\u5B58\u6587\u4EF6\u5931\u8D25: ${err.message}`);
+        }
       }
     }));
-    context.subscriptions.push(vscode10.commands.registerCommand("larksync.refreshSidebar", () => {
+    context.subscriptions.push(vscode11.commands.registerCommand("larksync.openDashboard", () => {
+      DashboardPanel.createOrShow(context.extensionUri, syncEngine);
+    }));
+    context.subscriptions.push(vscode11.commands.registerCommand("larksync.openSyncFolder", async () => {
+      const workspaceFolders = vscode11.workspace.workspaceFolders;
+      if (workspaceFolders && workspaceFolders.length > 0) {
+        const config = vscode11.workspace.getConfiguration("larksync");
+        const configuredDir = config.get("syncDirectory");
+        const syncDirName = configuredDir !== void 0 ? configuredDir : CONSTANTS.DEFAULT_SYNC_DIR;
+        const targetUri = syncDirName ? vscode11.Uri.joinPath(workspaceFolders[0].uri, syncDirName) : workspaceFolders[0].uri;
+        try {
+          await vscode11.workspace.fs.stat(targetUri);
+        } catch {
+          await vscode11.workspace.fs.createDirectory(targetUri);
+        }
+        vscode11.commands.executeCommand("revealFileInOS", targetUri);
+      } else {
+        const result = await vscode11.window.showOpenDialog({
+          canSelectFiles: false,
+          canSelectFolders: true,
+          canSelectMany: false,
+          openLabel: "\u9009\u62E9\u5E76\u6253\u5F00\u4F5C\u4E3A LarkSync \u7684\u672C\u5730\u77E5\u8BC6\u5E93"
+        });
+        if (result && result.length > 0) {
+          vscode11.commands.executeCommand("vscode.openFolder", result[0], false);
+        }
+      }
+    }));
+    context.subscriptions.push(vscode11.commands.registerCommand("larksync.refreshSidebar", () => {
       if (treeProvider) {
         treeProvider.refresh();
       }
@@ -16911,10 +17492,7 @@ function activate(context) {
     try {
       const tokenStore = new TokenStore(context.secrets);
       const oauthManager = new OAuthManager(tokenStore);
-      context.subscriptions.push(
-        vscode10.window.registerUriHandler(oauthManager)
-      );
-      context.subscriptions.push(vscode10.commands.registerCommand("larksync.login", async () => {
+      context.subscriptions.push(vscode11.commands.registerCommand("larksync.login", async () => {
         const success = await oauthManager.login();
         if (success) {
           const userToken = await oauthManager.getValidUserToken();
@@ -16923,7 +17501,7 @@ function activate(context) {
           }
         }
       }));
-      context.subscriptions.push(vscode10.commands.registerCommand("larksync.logout", async () => {
+      context.subscriptions.push(vscode11.commands.registerCommand("larksync.logout", async () => {
         await oauthManager.logout();
         feishuClient.setUserAccessToken("");
       }));
@@ -16931,7 +17509,7 @@ function activate(context) {
       logger.error(`OAuth \u521D\u59CB\u5316\u5931\u8D25\uFF08\u4E0D\u5F71\u54CD\u6838\u5FC3\u540C\u6B65\uFF09: ${authErr.message}`, authErr);
     }
     setupPolling();
-    context.subscriptions.push(vscode10.workspace.onDidChangeConfiguration((e) => {
+    context.subscriptions.push(vscode11.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("larksync.pollingIntervalMinutes")) {
         setupPolling();
       }
@@ -16941,7 +17519,7 @@ function activate(context) {
     const msg = `LarkSync \u6FC0\u6D3B\u5931\u8D25: ${err.message}`;
     console.error(msg, err);
     logger.error(msg, err);
-    vscode10.window.showErrorMessage(msg);
+    vscode11.window.showErrorMessage(msg);
   }
 }
 function setupPolling() {
@@ -16949,7 +17527,7 @@ function setupPolling() {
     clearInterval(pollingTimer);
     pollingTimer = null;
   }
-  const config = vscode10.workspace.getConfiguration("larksync");
+  const config = vscode11.workspace.getConfiguration("larksync");
   const intervalMinutes = config.get("pollingIntervalMinutes") || 0;
   if (intervalMinutes > 0) {
     const intervalMs = intervalMinutes * 60 * 1e3;

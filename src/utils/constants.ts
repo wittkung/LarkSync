@@ -5,7 +5,7 @@ export const CONSTANTS = {
     FEISHU_META_BATCH_QUERY_URL: 'https://open.feishu.cn/open-apis/drive/v1/metas/batch_query',
 
     // 同步设置
-    DEFAULT_SYNC_DIR: 'LarkDocs',
+    DEFAULT_SYNC_DIR: '',
     ASSETS_DIR_NAME: 'assets',
     MAX_META_BATCH_SIZE: 200,
     CONCURRENCY_LIMIT: 2,           // 文档同步并发数
@@ -16,6 +16,9 @@ export const CONSTANTS = {
     RETRY_BASE_DELAY_MS: 1500,
     TOKEN_REFRESH_MARGIN_SEC: 300,
     FALLBACK_CACHE_TTL_MS: 43200 * 1000,
+
+    /** 增量同步：每层级最大分页请求数（安全阀，防止异常无限分页） */
+    MAX_PAGES_PER_LEVEL: 20,
 
     // 文件名与路径
     STATE_FILE_NAME: '.larksync_state.json',

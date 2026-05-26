@@ -2,7 +2,7 @@
     "name": "larksync",
     "displayName": "LarkSync",
     "description": "Sync Feishu Knowledge Base to local Markdown automatically",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "publisher": "kevintung",
     "repository": {
         "type": "git",
@@ -14,9 +14,6 @@
     "categories": [
         "Other"
     ],
-    "activationEvents": [
-        "onCommand:larksync.startSync"
-    ],
     "main": "./out/extension.js",
     "extensionKind": [
         "workspace",
@@ -25,13 +22,18 @@
     "contributes": {
         "commands": [
             {
+                "command": "larksync.openDashboard",
+                "title": "LarkSync: Open Dashboard",
+                "icon": "$(dashboard)"
+            },
+            {
                 "command": "larksync.startSync",
                 "title": "LarkSync: Incremental Sync (Fast)",
                 "icon": "$(sync)"
             },
             {
                 "command": "larksync.forceSyncTree",
-                "title": "LarkSync: Force Fetch Directory Tree",
+                "title": "LarkSync: Force Full Sync (全量重建)",
                 "icon": "$(cloud-download)"
             },
             {
@@ -75,6 +77,11 @@
         },
         "menus": {
             "view/title": [
+                {
+                    "command": "larksync.openDashboard",
+                    "when": "view == larksyncSidebar",
+                    "group": "navigation@-1"
+                },
                 {
                     "command": "larksync.openSyncFolder",
                     "when": "view == larksyncSidebar",
@@ -127,8 +134,8 @@
                 },
                 "larksync.syncDirectory": {
                     "type": "string",
-                    "default": "LarkDocs",
-                    "description": "Local workspace directory name to store the synced markdown files"
+                    "default": "",
+                    "description": "Local workspace directory name to store the synced markdown files (leave empty to use workspace root)"
                 },
                 "larksync.pollingIntervalMinutes": {
                     "type": "number",
@@ -159,7 +166,8 @@
     "scripts": {
         "vscode:prepublish": "npm run compile",
         "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
-        "compile": "npm run clean && node esbuild.mjs",
+        "build:ui": "npm run build --prefix webview-ui",
+        "compile": "npm run clean && npm run build:ui && node esbuild.mjs",
         "build": "npm run compile && vsce package",
         "watch": "node esbuild.mjs --watch",
         "typecheck": "tsc -p ./ --noEmit",
