@@ -555,5 +555,5 @@ function handlePassthrough(block: DocxBlock, ctx: RenderContext): string {
 // ========================================================
 
 function sanitizeFileName(name: string): string {
-    return name.replace(/[\\/:*?"<>|]/g, '_');
+    return name.replace(/[\\/:*?"<>|\r\n\t]/g, '_').trim();
 }

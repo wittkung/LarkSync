@@ -127,6 +127,6 @@ export class MediaManager {
     }
 
     private sanitizeFileName(name: string): string {
-        return name.replace(/[\\/:*?"<>|]/g, '_');
+        return name.replace(/[\\/:*?"<>|\r\n\t]/g, '_').trim();
     }
 }

@@ -34,6 +34,7 @@ export interface TreeDiffResult {
 
 export class TreeDiffEngine {
     private apiCallCount = 0;
+    private levelsScanned = 0;
 
     constructor(
         private feishuClient: FeishuClient,
@@ -47,6 +48,7 @@ export class TreeDiffEngine {
      */
     public async diffAndMerge(cachedNodes: WikiNode[]): Promise<TreeDiffResult> {
         this.apiCallCount = 0;
+        this.levelsScanned = 0;
 
         // 1. 建立缓存索引
         const cachedByToken = new Map<string, WikiNode>();
@@ -125,6 +127,11 @@ export class TreeDiffEngine {
         contentChanged: WikiNode[]
     ): Promise<void> {
         // 拉取此层级的全部节点（处理分页）
+        const parentLabel = parentNodeToken ? parentNodeToken.substring(0, 8) + '...' : 'root';
+        this.levelsScanned++;
+        if (this.levelsScanned % 5 === 0 || !parentNodeToken) {
+            logger.info(`[增量] 扫描层级 #${this.levelsScanned} (${parentLabel})...`);
+        }
         const freshNodes = await this.fetchAllNodesForParent(parentNodeToken);
 
         const parentKey = parentNodeToken || '__root__';

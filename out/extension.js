@@ -16065,7 +16065,7 @@ var FileManager = class {
     return vscode4.Uri.joinPath(this.rootUri, ...dirParts);
   }
   sanitizeFileName(name) {
-    return name.replace(/[\\/:*?"<>|]/g, "_");
+    return name.replace(/[\\/:*?"<>|\r\n\t]/g, "_").trim();
   }
 };
 
@@ -16159,7 +16159,7 @@ var MediaManager = class {
     return entry.type === "image" ? ".png" : "";
   }
   sanitizeFileName(name) {
-    return name.replace(/[\\/:*?"<>|]/g, "_");
+    return name.replace(/[\\/:*?"<>|\r\n\t]/g, "_").trim();
   }
 };
 
@@ -16169,6 +16169,7 @@ var TreeDiffEngine = class {
     this.feishuClient = feishuClient2;
     this.spaceId = spaceId;
     this.apiCallCount = 0;
+    this.levelsScanned = 0;
   }
   /**
    * 执行增量目录树同步
@@ -16177,6 +16178,7 @@ var TreeDiffEngine = class {
    */
   async diffAndMerge(cachedNodes) {
     this.apiCallCount = 0;
+    this.levelsScanned = 0;
     const cachedByToken = /* @__PURE__ */ new Map();
     const cachedByParent = /* @__PURE__ */ new Map();
     for (const node of cachedNodes) {
@@ -16234,6 +16236,11 @@ var TreeDiffEngine = class {
    * @param parentNodeToken 父节点 token（undefined 表示根层）
    */
   async diffLevel(parentNodeToken, cachedByParent, cachedByToken, added, deleted, contentChanged) {
+    const parentLabel = parentNodeToken ? parentNodeToken.substring(0, 8) + "..." : "root";
+    this.levelsScanned++;
+    if (this.levelsScanned % 5 === 0 || !parentNodeToken) {
+      logger.info(`[\u589E\u91CF] \u626B\u63CF\u5C42\u7EA7 #${this.levelsScanned} (${parentLabel})...`);
+    }
     const freshNodes = await this.fetchAllNodesForParent(parentNodeToken);
     const parentKey = parentNodeToken || "__root__";
     const cachedChildren = cachedByParent.get(parentKey) || [];
