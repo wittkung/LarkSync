@@ -436,7 +436,7 @@ function handlePassthrough(block, ctx) {
   return ctx.renderChildren(block.children, ctx);
 }
 function sanitizeFileName(name) {
-  return name.replace(/[\\/:*?"<>|]/g, "_");
+  return name.replace(/[\\/:*?"<>|\r\n\t]/g, "_").trim();
 }
 
 // src/utils/markdownConverter.ts
