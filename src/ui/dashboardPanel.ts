@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import { FeishuClient, feishuClient } from '../api/feishuClient';
-import { StateManager } from '../core/stateManager';
+import { FeishuClient } from '../api/feishuClient';
 import { SyncEngine } from '../syncEngine';
 
 export class DashboardPanel {
@@ -11,15 +10,18 @@ export class DashboardPanel {
 
     // Dependencies
     private syncEngine: SyncEngine;
+    private feishuClient: FeishuClient;
 
     private constructor(
-        panel: vscode.WebviewPanel, 
+        panel: vscode.WebviewPanel,
         extensionUri: vscode.Uri,
-        syncEngine: SyncEngine
+        syncEngine: SyncEngine,
+        feishuClient: FeishuClient
     ) {
         this._panel = panel;
         this._extensionUri = extensionUri;
         this.syncEngine = syncEngine;
+        this.feishuClient = feishuClient;
 
         this._update();
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
@@ -30,7 +32,7 @@ export class DashboardPanel {
         );
 
         // Listen for sync progress updates from engine to broadcast to UI
-        const progressDisposable = this.syncEngine.onProgress((status) => {
+        const progressDisposable = this.syncEngine.onProgress(status => {
             if (this._panel && this._panel.webview) {
                 this._panel.webview.postMessage({ command: 'syncProgress', payload: status });
             }
@@ -40,7 +42,8 @@ export class DashboardPanel {
 
     public static createOrShow(
         extensionUri: vscode.Uri,
-        syncEngine: SyncEngine
+        syncEngine: SyncEngine,
+        feishuClient: FeishuClient
     ) {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
@@ -57,14 +60,17 @@ export class DashboardPanel {
             column || vscode.ViewColumn.One,
             {
                 enableScripts: true,
-                localResourceRoots: [
-                    vscode.Uri.joinPath(extensionUri, 'webview-ui', 'build')
-                ],
+                localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'webview-ui', 'build')],
                 retainContextWhenHidden: true // Keep React state alive
             }
         );
 
-        DashboardPanel.currentPanel = new DashboardPanel(panel, extensionUri, syncEngine);
+        DashboardPanel.currentPanel = new DashboardPanel(
+            panel,
+            extensionUri,
+            syncEngine,
+            feishuClient
+        );
     }
 
     private async _handleMessage(message: any) {
@@ -80,7 +86,10 @@ export class DashboardPanel {
                 this.sendHealthData();
                 return;
             case 'openSettings':
-                vscode.commands.executeCommand('workbench.action.openSettings', '@ext:kevintung.larksync');
+                vscode.commands.executeCommand(
+                    'workbench.action.openSettings',
+                    '@ext:kevintung.larksync'
+                );
                 return;
             case 'openFolder':
                 vscode.commands.executeCommand('larksync.openSyncFolder');
@@ -91,20 +100,23 @@ export class DashboardPanel {
             case 'startSync':
                 vscode.commands.executeCommand('larksync.startSync');
                 return;
-            case 'login':
+            case 'login': {
                 vscode.commands.executeCommand('larksync.login');
                 // Poll for login success to update health
                 const pollTimer = setInterval(() => {
-                    if (feishuClient.isLoggedIn()) {
+                    if (this.feishuClient.isLoggedIn()) {
                         clearInterval(pollTimer);
                         this.sendHealthData();
                     }
                 }, 1000);
                 setTimeout(() => clearInterval(pollTimer), 60000); // 1 min timeout
                 return;
+            }
             case 'saveConfig':
                 if (payload && payload.key && typeof payload.value === 'string') {
-                    vscode.workspace.getConfiguration().update(payload.key, payload.value, vscode.ConfigurationTarget.Workspace);
+                    vscode.workspace
+                        .getConfiguration()
+                        .update(payload.key, payload.value, vscode.ConfigurationTarget.Workspace);
                 }
                 return;
         }
@@ -116,25 +128,29 @@ export class DashboardPanel {
         const hasAppSecret = !!config.get('appSecret');
         const spaceId = config.get('spaceId');
         const syncDir = config.get('syncDirectory');
-        
+
         // Use a lightweight check instead of full API call
-        const tokenStatus = feishuClient.isLoggedIn();
-        
+        const tokenStatus = this.feishuClient.isLoggedIn();
+
         let lastSync = null;
         try {
             if (this.syncEngine && (this.syncEngine as any).stateManager) {
                 const state = (this.syncEngine as any).stateManager.state;
                 if (state) {
-                    const times = Object.values<{lastSyncTime?: number}>(state).map(e => e.lastSyncTime || 0);
+                    const times = Object.values<{ lastSyncTime?: number }>(state).map(
+                        e => e.lastSyncTime || 0
+                    );
                     if (times.length > 0) {
                         lastSync = Math.max(...times);
                     }
                 }
             }
-        } catch (e) {}
+        } catch (_e) {
+            // Ignore error
+        }
 
-        this._panel.webview.postMessage({ 
-            command: 'healthData', 
+        this._panel.webview.postMessage({
+            command: 'healthData',
             payload: { hasAppId, hasAppSecret, tokenValid: tokenStatus, spaceId, syncDir, lastSync }
         });
     }
@@ -146,8 +162,12 @@ export class DashboardPanel {
 
     private _getHtmlForWebview(webview: vscode.Webview) {
         // Points to the output of `npm run build` in webview-ui
-        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'build', 'assets', 'index.js'));
-        const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'build', 'assets', 'index.css'));
+        const scriptUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'build', 'assets', 'index.js')
+        );
+        const styleUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this._extensionUri, 'webview-ui', 'build', 'assets', 'index.css')
+        );
 
         // Use a nonce to only allow specific scripts to be run
         const nonce = getNonce();

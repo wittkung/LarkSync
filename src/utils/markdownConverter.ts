@@ -9,18 +9,9 @@
  * 4. Handler 通过 RenderContext 递归处理嵌套块
  */
 
-import {
-    DocxBlock,
-    BlockType,
-    MediaTokenEntry,
-    ConversionResult,
-} from '../types';
+import { DocxBlock, BlockType, MediaTokenEntry, ConversionResult } from '../types';
 
-import {
-    RenderContext,
-    BlockHandler,
-    createHandlerMap,
-} from './blockHandlers';
+import { RenderContext, BlockHandler, createHandlerMap } from './blockHandlers';
 
 export class MarkdownConverter {
     private static handlerMap: Map<number, BlockHandler> = createHandlerMap();
@@ -60,7 +51,7 @@ export class MarkdownConverter {
             docTitle: title,
             tableRenderMode: 'html',
             renderChildren: renderChildren,
-            renderBlock: renderBlock,
+            renderBlock: renderBlock
         };
 
         // 4. 执行 DFS 遍历
@@ -85,7 +76,7 @@ export class MarkdownConverter {
 
     /**
      * 兼容旧版调用签名（所有现有代码使用的入口）
-     * 
+     *
      * @deprecated 请使用 convert() 方法获取完整的 ConversionResult
      */
     public static convertBlocksToMarkdown(title: string, blocks: DocxBlock[]): string {
@@ -113,8 +104,8 @@ function renderChildren(childIds: string[], ctx: RenderContext): string {
 
         // 在列表项之间不插入额外空行；非列表块之间正常分隔
         const currentType = childBlock.block_type;
-        const isCurrentList = isListType(currentType);
-        const isPrevList = prevBlockType !== null && isListType(prevBlockType);
+        const _isCurrentList = isListType(currentType);
+        const _isPrevList = prevBlockType !== null && isListType(prevBlockType);
 
         // 重置有序列表计数器：当非有序列表块出现时
         if (currentType !== BlockType.ORDERED && prevBlockType === BlockType.ORDERED) {
@@ -158,9 +149,11 @@ function renderBlock(block: DocxBlock, ctx: RenderContext): string {
  * 判断是否为列表类型块
  */
 function isListType(blockType: number): boolean {
-    return blockType === BlockType.BULLET
-        || blockType === BlockType.ORDERED
-        || blockType === BlockType.TODO;
+    return (
+        blockType === BlockType.BULLET ||
+        blockType === BlockType.ORDERED ||
+        blockType === BlockType.TODO
+    );
 }
 
 /**

@@ -16,7 +16,7 @@ import { MarkdownConverter } from './utils/markdownConverter';
 import { DocxBlock } from './types';
 
 async function convert() {
-    const { blocks, title } = workerData as { blocks: DocxBlock[], title: string };
+    const { blocks, title } = workerData as { blocks: DocxBlock[]; title: string };
 
     try {
         const result = MarkdownConverter.convert(title, blocks);
@@ -24,12 +24,12 @@ async function convert() {
         parentPort?.postMessage({
             success: true,
             markdown: result.markdown,
-            mediaTokens: result.mediaTokens,
+            mediaTokens: result.mediaTokens
         });
     } catch (e: any) {
         parentPort?.postMessage({
             success: false,
-            error: e.message,
+            error: e.message
         });
     }
 }

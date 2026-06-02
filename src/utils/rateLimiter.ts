@@ -26,12 +26,12 @@ const DEFAULT_CONFIG: RateLimiterConfig = {
     maxQPS: 3,
     maxRetries: 3,
     baseDelayMs: 1000,
-    maxDelayMs: 30000,
+    maxDelayMs: 30000
 };
 
 /**
  * 令牌桶限流器
- * 
+ *
  * 每秒按 maxQPS 速率补充令牌，调用前先获取令牌。
  * 桶空时等待至下一个令牌可用。
  */
@@ -70,7 +70,7 @@ export class RateLimiter {
 
     /**
      * 带限流和自动退避重试的执行器
-     * 
+     *
      * @param fn 要执行的异步操作
      * @param retryOnError 判断错误是否应该重试的谓词
      * @returns 操作结果
@@ -91,9 +91,7 @@ export class RateLimiter {
                 lastError = err;
 
                 // 判断是否应该重试
-                const shouldRetry = retryOnError
-                    ? retryOnError(err)
-                    : this.isRetryableError(err);
+                const shouldRetry = retryOnError ? retryOnError(err) : this.isRetryableError(err);
 
                 if (!shouldRetry || attempt >= this.config.maxRetries) {
                     throw err;
@@ -103,7 +101,7 @@ export class RateLimiter {
                 const delayMs = this.calculateBackoff(attempt, err);
                 logger.warn(
                     `请求失败 (attempt ${attempt + 1}/${this.config.maxRetries + 1}), ` +
-                    `${delayMs}ms 后重试: ${err.message}`
+                        `${delayMs}ms 后重试: ${err.message}`
                 );
                 await this.delay(delayMs);
             }
@@ -140,7 +138,7 @@ export class RateLimiter {
 
     /**
      * 计算指数退避 + Jitter
-     * 
+     *
      * 如果响应头包含 retry-after，优先使用。
      */
     private calculateBackoff(attempt: number, err: any): number {

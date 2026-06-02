@@ -59,7 +59,7 @@ export class TokenStore {
         const expiry = await this.getTokenExpiry();
         if (!expiry) return true;
         const marginMs = 5 * 60 * 1000; // 5 分钟提前量
-        return Date.now() >= (expiry - marginMs);
+        return Date.now() >= expiry - marginMs;
     }
 
     // --- 清除所有凭证 ---

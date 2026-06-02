@@ -1,191 +1,219 @@
 {
-    "name": "larksync",
-    "displayName": "LarkSync",
-    "description": "Sync Feishu Knowledge Base to local Markdown automatically",
-    "version": "1.0.1",
-    "publisher": "kevintung",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/kevintung/larksync"
-    },
-    "engines": {
-        "vscode": "^1.80.0"
-    },
-    "categories": [
-        "Other"
+  "name": "larksync",
+  "displayName": "LarkSync",
+  "description": "Sync Feishu Knowledge Base to local Markdown automatically",
+  "version": "1.0.1",
+  "publisher": "kevintung",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kevintung/larksync"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "extensionKind": [
+    "workspace",
+    "ui"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "larksync.openDashboard",
+        "title": "LarkSync: Open Dashboard",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "larksync.startSync",
+        "title": "LarkSync: Incremental Sync (Fast)",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "larksync.forceSyncTree",
+        "title": "LarkSync: Force Full Sync (全量重建)",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "larksync.openSyncFolder",
+        "title": "Open Sync Folder in OS Explorer",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "larksync.refreshSidebar",
+        "title": "Refresh Local Workspace",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "larksync.login",
+        "title": "LarkSync: Login with Feishu Account",
+        "icon": "$(log-in)"
+      },
+      {
+        "command": "larksync.logout",
+        "title": "LarkSync: Logout",
+        "icon": "$(log-out)"
+      }
     ],
-    "main": "./out/extension.js",
-    "extensionKind": [
-        "workspace",
-        "ui"
-    ],
-    "contributes": {
-        "commands": [
-            {
-                "command": "larksync.openDashboard",
-                "title": "LarkSync: Open Dashboard",
-                "icon": "$(dashboard)"
-            },
-            {
-                "command": "larksync.startSync",
-                "title": "LarkSync: Incremental Sync (Fast)",
-                "icon": "$(sync)"
-            },
-            {
-                "command": "larksync.forceSyncTree",
-                "title": "LarkSync: Force Full Sync (全量重建)",
-                "icon": "$(cloud-download)"
-            },
-            {
-                "command": "larksync.openSyncFolder",
-                "title": "Open Sync Folder in OS Explorer",
-                "icon": "$(folder-opened)"
-            },
-            {
-                "command": "larksync.refreshSidebar",
-                "title": "Refresh Local Workspace",
-                "icon": "$(refresh)"
-            },
-            {
-                "command": "larksync.login",
-                "title": "LarkSync: Login with Feishu Account",
-                "icon": "$(log-in)"
-            },
-            {
-                "command": "larksync.logout",
-                "title": "LarkSync: Logout",
-                "icon": "$(log-out)"
-            }
-        ],
-        "viewsContainers": {
-            "activitybar": [
-                {
-                    "id": "larksync-container",
-                    "title": "LarkSync",
-                    "icon": "resources/icon.svg"
-                }
-            ]
-        },
-        "views": {
-            "larksync-container": [
-                {
-                    "id": "larksyncSidebar",
-                    "name": "Local Knowledge Base",
-                    "icon": "resources/icon.svg"
-                }
-            ]
-        },
-        "menus": {
-            "view/title": [
-                {
-                    "command": "larksync.openDashboard",
-                    "when": "view == larksyncSidebar",
-                    "group": "navigation@-1"
-                },
-                {
-                    "command": "larksync.openSyncFolder",
-                    "when": "view == larksyncSidebar",
-                    "group": "navigation@0"
-                },
-                {
-                    "command": "larksync.startSync",
-                    "when": "view == larksyncSidebar",
-                    "group": "navigation@1"
-                },
-                {
-                    "command": "larksync.forceSyncTree",
-                    "when": "view == larksyncSidebar",
-                    "group": "navigation@2"
-                },
-                {
-                    "command": "larksync.refreshSidebar",
-                    "when": "view == larksyncSidebar",
-                    "group": "navigation@3"
-                },
-                {
-                    "command": "larksync.login",
-                    "when": "view == larksyncSidebar",
-                    "group": "1_auth@1"
-                },
-                {
-                    "command": "larksync.logout",
-                    "when": "view == larksyncSidebar",
-                    "group": "1_auth@2"
-                }
-            ]
-        },
-        "configuration": {
-            "title": "LarkSync",
-            "properties": {
-                "larksync.appId": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Feishu App ID"
-                },
-                "larksync.appSecret": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Feishu App Secret"
-                },
-                "larksync.spaceId": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Feishu Knowledge Space ID or Root Folder Token to sync"
-                },
-                "larksync.syncDirectory": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Local workspace directory name to store the synced markdown files (leave empty to use workspace root)"
-                },
-                "larksync.pollingIntervalMinutes": {
-                    "type": "number",
-                    "default": 5,
-                    "description": "Interval in minutes to poll for cloud updates (0 to disable)"
-                },
-                "larksync.deleteOrphanFiles": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Automatically delete local files that no longer exist in the cloud knowledge base"
-                },
-                "larksync.tableRenderMode": {
-                    "type": "string",
-                    "default": "html",
-                    "enum": [
-                        "html",
-                        "gfm"
-                    ],
-                    "enumDescriptions": [
-                        "HTML high-fidelity mode: supports merged cells, styling (default)",
-                        "GFM pure mode: pure Markdown tables, better for GitHub/Hugo compatibility"
-                    ],
-                    "description": "Table rendering strategy for converted Markdown files"
-                }
-            }
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "larksync-container",
+          "title": "LarkSync",
+          "icon": "resources/icon.svg"
         }
+      ]
     },
-    "scripts": {
-        "vscode:prepublish": "npm run compile",
-        "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
-        "build:ui": "npm run build --prefix webview-ui",
-        "compile": "npm run clean && npm run build:ui && node esbuild.mjs",
-        "build": "npm run compile && vsce package",
-        "watch": "node esbuild.mjs --watch",
-        "typecheck": "tsc -p ./ --noEmit",
-        "deploy": "npm run build && node scripts/install-ext.js",
-        "pretest": "npm run compile"
+    "views": {
+      "larksync-container": [
+        {
+          "id": "larksyncSidebar",
+          "name": "Local Knowledge Base",
+          "icon": "resources/icon.svg"
+        }
+      ]
     },
-    "devDependencies": {
-        "@types/node": "18.x",
-        "@types/vscode": "^1.80.0",
-        "@typescript-eslint/eslint-plugin": "^8.56.1",
-        "@typescript-eslint/parser": "^8.56.1",
-        "@vscode/vsce": "^3.9.1",
-        "esbuild": "^0.27.3",
-        "eslint": "^9.39.3",
-        "typescript": "^5.1.3"
+    "menus": {
+      "view/title": [
+        {
+          "command": "larksync.openDashboard",
+          "when": "view == larksyncSidebar",
+          "group": "navigation@-1"
+        },
+        {
+          "command": "larksync.openSyncFolder",
+          "when": "view == larksyncSidebar",
+          "group": "navigation@0"
+        },
+        {
+          "command": "larksync.startSync",
+          "when": "view == larksyncSidebar",
+          "group": "navigation@1"
+        },
+        {
+          "command": "larksync.forceSyncTree",
+          "when": "view == larksyncSidebar",
+          "group": "navigation@2"
+        },
+        {
+          "command": "larksync.refreshSidebar",
+          "when": "view == larksyncSidebar",
+          "group": "navigation@3"
+        },
+        {
+          "command": "larksync.login",
+          "when": "view == larksyncSidebar",
+          "group": "1_auth@1"
+        },
+        {
+          "command": "larksync.logout",
+          "when": "view == larksyncSidebar",
+          "group": "1_auth@2"
+        }
+      ]
     },
-    "dependencies": {
-        "axios": "^1.6.0",
-        "p-limit": "^3.1.0"
+    "configuration": {
+      "title": "LarkSync",
+      "properties": {
+        "larksync.appId": {
+          "type": "string",
+          "default": "",
+          "description": "Feishu App ID"
+        },
+        "larksync.appSecret": {
+          "type": "string",
+          "default": "",
+          "description": "Feishu App Secret"
+        },
+        "larksync.spaceId": {
+          "type": "string",
+          "default": "",
+          "description": "Feishu Knowledge Space ID or Root Folder Token to sync"
+        },
+        "larksync.syncDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Local workspace directory name to store the synced markdown files (leave empty to use workspace root)"
+        },
+        "larksync.pollingIntervalMinutes": {
+          "type": "number",
+          "default": 5,
+          "description": "Interval in minutes to poll for cloud updates (0 to disable)"
+        },
+        "larksync.deleteOrphanFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically delete local files that no longer exist in the cloud knowledge base"
+        },
+        "larksync.tableRenderMode": {
+          "type": "string",
+          "default": "html",
+          "enum": [
+            "html",
+            "gfm"
+          ],
+          "enumDescriptions": [
+            "HTML high-fidelity mode: supports merged cells, styling (default)",
+            "GFM pure mode: pure Markdown tables, better for GitHub/Hugo compatibility"
+          ],
+          "description": "Table rendering strategy for converted Markdown files"
+        }
+      }
     }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
+    "build:ui": "npm run build --prefix webview-ui",
+    "compile": "npm run clean && npm run build:ui && node esbuild.mjs",
+    "build": "npm run compile && vsce package",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc -p ./ --noEmit",
+    "deploy": "npm run build && node scripts/install-ext.js",
+    "pretest": "tsc -p ./",
+    "test": "node ./out/test/runTest.js",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "18.x",
+    "@types/sinon": "^21.0.1",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.1",
+    "chai": "^6.2.2",
+    "esbuild": "^0.27.3",
+    "eslint": "^9.39.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "glob": "^13.0.6",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
+    "mocha": "^11.7.6",
+    "prettier": "^3.8.3",
+    "sinon": "^22.0.0",
+    "typescript": "^5.1.3",
+    "typescript-eslint": "^8.60.1"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "p-limit": "^3.1.0"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "src/**/*.{json,md}": [
+      "prettier --write"
+    ]
+  }
 }

@@ -103,7 +103,7 @@ export enum BlockType {
     JIRA_ISSUE = 41,
     WIKI_CATALOG = 42,
     BOARD = 43,
-    UNDEFINED = 999,
+    UNDEFINED = 999
 }
 
 // --- 富文本元素 (TextElement) ---
@@ -267,7 +267,7 @@ export interface IframeBlockData {
 }
 
 /** 分割线块数据（无额外字段） */
-export interface DividerBlockData { }
+export interface DividerBlockData {}
 
 // --- 飞书 Docx Block 核心结构 ---
 
@@ -372,7 +372,7 @@ export enum SyncNodeStatus {
     /** 远端新增，本地尚未同步 */
     ADDED = 'added',
     /** 远端删除，待清理 */
-    DELETED = 'deleted',
+    DELETED = 'deleted'
 }
 
 // --- 配置 ---
@@ -492,5 +492,5 @@ export const CODE_LANGUAGE_MAP: Record<number, string> = {
     87: 'toml',
     88: 'twig',
     89: 'verilog',
-    90: 'vue',
+    90: 'vue'
 };

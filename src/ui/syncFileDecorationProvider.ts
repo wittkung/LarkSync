@@ -10,7 +10,6 @@ import { SyncNodeStatus } from '../types';
 
 /** 为 TreeView 中的节点提供视觉装饰（颜色 + 徽标字母） */
 export class SyncFileDecorationProvider implements vscode.FileDecorationProvider {
-
     private _onDidChangeFileDecorations = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
     readonly onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;
 
@@ -55,37 +54,37 @@ export class SyncFileDecorationProvider implements vscode.FileDecorationProvider
                 return {
                     badge: 'M',
                     color: new vscode.ThemeColor('gitDecoration.modifiedResourceForeground'),
-                    tooltip: '本地已被修改',
+                    tooltip: '本地已被修改'
                 };
             case SyncNodeStatus.CLOUD_UPDATED:
                 return {
                     badge: 'U',
                     color: new vscode.ThemeColor('gitDecoration.untrackedResourceForeground'), // Often blue/green
-                    tooltip: '云端有新版本',
+                    tooltip: '云端有新版本'
                 };
             case SyncNodeStatus.CONFLICT:
                 return {
                     badge: 'C',
                     color: new vscode.ThemeColor('gitDecoration.conflictingResourceForeground'),
-                    tooltip: '双端均被修改，存在冲突！',
+                    tooltip: '双端均被修改，存在冲突！'
                 };
             case SyncNodeStatus.UNTRACKED:
                 return {
                     badge: 'U',
                     color: new vscode.ThemeColor('gitDecoration.untrackedResourceForeground'),
-                    tooltip: '本地脱机文件',
+                    tooltip: '本地脱机文件'
                 };
             case SyncNodeStatus.ADDED:
                 return {
                     badge: 'A',
                     color: new vscode.ThemeColor('gitDecoration.addedResourceForeground'),
-                    tooltip: '远端新增文件',
+                    tooltip: '远端新增文件'
                 };
             case SyncNodeStatus.DELETED:
                 return {
                     badge: 'D',
                     color: new vscode.ThemeColor('gitDecoration.deletedResourceForeground'),
-                    tooltip: '远端已删除',
+                    tooltip: '远端已删除'
                 };
             default:
                 return undefined;

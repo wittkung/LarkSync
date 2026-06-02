@@ -92,16 +92,11 @@ export class TreeDiffEngine {
         }
 
         // 3. 构建合并后的完整树
-        const mergedNodes = this.buildMergedTree(
-            cachedNodes,
-            cachedByToken,
-            added,
-            deleted
-        );
+        const mergedNodes = this.buildMergedTree(cachedNodes, cachedByToken, added, deleted);
 
         logger.info(
             `增量 Diff 完成: +${added.length} / -${deleted.length} / ~${contentChanged.length} ` +
-            `(${this.apiCallCount} 次 API 调用, 合并后 ${mergedNodes.length} 个节点)`
+                `(${this.apiCallCount} 次 API 调用, 合并后 ${mergedNodes.length} 个节点)`
         );
 
         return {
@@ -168,7 +163,7 @@ export class TreeDiffEngine {
                 ) {
                     logger.info(
                         `[增量] 文档有更新: [${freshNode.title}] ` +
-                        `(${cachedNode.obj_edit_time} → ${freshNode.obj_edit_time})`
+                            `(${cachedNode.obj_edit_time} → ${freshNode.obj_edit_time})`
                     );
                     contentChanged.push(freshNode);
                 } else if (freshNode.obj_edit_time && !cachedNode.obj_edit_time) {
@@ -178,9 +173,7 @@ export class TreeDiffEngine {
 
                 // 检查标题是否变更（需要更新缓存中的元数据）
                 if (freshNode.title !== cachedNode.title) {
-                    logger.info(
-                        `[增量] 标题变更: [${cachedNode.title}] → [${freshNode.title}]`
-                    );
+                    logger.info(`[增量] 标题变更: [${cachedNode.title}] → [${freshNode.title}]`);
                 }
 
                 // 更新缓存中该节点的最新元数据（title / obj_edit_time / has_child 等）
@@ -218,7 +211,9 @@ export class TreeDiffEngine {
         // 缓存中该层有、但远端该层没有的节点
         for (const cachedChild of cachedChildren) {
             if (!freshTokenSet.has(cachedChild.node_token)) {
-                logger.info(`[增量] 节点已删除: [${cachedChild.title}] (${cachedChild.node_token})`);
+                logger.info(
+                    `[增量] 节点已删除: [${cachedChild.title}] (${cachedChild.node_token})`
+                );
                 deleted.push(cachedChild.node_token);
                 // 级联标记其所有子孙为删除
                 this.collectDescendantTokens(cachedChild.node_token, cachedByParent, deleted);
@@ -240,7 +235,7 @@ export class TreeDiffEngine {
             if (pageCount > CONSTANTS.MAX_PAGES_PER_LEVEL) {
                 logger.warn(
                     `[增量] 分页数超过安全阀 ${CONSTANTS.MAX_PAGES_PER_LEVEL}，停止拉取 ` +
-                    `(parent: ${parentNodeToken || 'root'})`
+                        `(parent: ${parentNodeToken || 'root'})`
                 );
                 break;
             }

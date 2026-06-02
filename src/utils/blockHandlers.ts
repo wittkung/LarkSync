@@ -1,7 +1,7 @@
 /**
  * blockHandlers.ts
  * 飞书 Docx Block 各类型的 Markdown 映射处理函数
- * 
+ *
  * 每个 Handler 接收一个 Block 节点和上下文信息，返回该节点的 Markdown 文本片段。
  * 嵌套块（如列表、表格单元格、Callout）通过递归调用上下文中的 renderChildren 来处理。
  */
@@ -11,14 +11,8 @@ import {
     BlockType,
     TextElement,
     TextElementStyle,
-    CodeBlockData,
-    CalloutBlockData,
-    ImageBlockData,
-    FileBlockData,
-    TableBlockData,
-    IframeBlockData,
     MediaTokenEntry,
-    CODE_LANGUAGE_MAP,
+    CODE_LANGUAGE_MAP
 } from '../types';
 
 // ========================================================
@@ -118,36 +112,38 @@ export function createHandlerMap(): Map<number, BlockHandler> {
 export function renderTextElements(elements: TextElement[] | undefined): string {
     if (!elements || elements.length === 0) return '';
 
-    return elements.map(el => {
-        // 纯文本运行段
-        if (el.text_run) {
-            let text = el.text_run.content || '';
-            const style = el.text_run.text_element_style;
-            if (style) {
-                text = applyInlineStyles(text, style);
+    return elements
+        .map(el => {
+            // 纯文本运行段
+            if (el.text_run) {
+                let text = el.text_run.content || '';
+                const style = el.text_run.text_element_style;
+                if (style) {
+                    text = applyInlineStyles(text, style);
+                }
+                return text;
             }
-            return text;
-        }
 
-        // @提及用户
-        if (el.mention_user) {
-            return `@${el.mention_user.user_id}`;
-        }
+            // @提及用户
+            if (el.mention_user) {
+                return `@${el.mention_user.user_id}`;
+            }
 
-        // @提及文档
-        if (el.mention_doc) {
-            const title = el.mention_doc.title || '文档链接';
-            const url = el.mention_doc.url || '';
-            return url ? `[${title}](${url})` : title;
-        }
+            // @提及文档
+            if (el.mention_doc) {
+                const title = el.mention_doc.title || '文档链接';
+                const url = el.mention_doc.url || '';
+                return url ? `[${title}](${url})` : title;
+            }
 
-        // 行内公式
-        if (el.equation) {
-            return `$${el.equation.content || ''}$`;
-        }
+            // 行内公式
+            if (el.equation) {
+                return `$${el.equation.content || ''}$`;
+            }
 
-        return '';
-    }).join('');
+            return '';
+        })
+        .join('');
 }
 
 /**
@@ -210,7 +206,7 @@ function handlePage(block: DocxBlock, ctx: RenderContext): string {
 }
 
 // --- 段落文本 ---
-function handleText(block: DocxBlock, ctx: RenderContext): string {
+function handleText(block: DocxBlock, _ctx: RenderContext): string {
     const data = block.text;
     if (!data) return '';
     const text = renderTextElements(data.elements);
@@ -221,7 +217,7 @@ function handleText(block: DocxBlock, ctx: RenderContext): string {
 
 // --- 标题 (1-9 级) ---
 function createHeadingHandler(level: number): BlockHandler {
-    return (block: DocxBlock, ctx: RenderContext): string => {
+    return (block: DocxBlock, _ctx: RenderContext): string => {
         // 飞书支持 1-9 级标题，Markdown 仅支持 1-6 级
         const effectiveLevel = Math.min(level, 6);
         const prefix = '#'.repeat(effectiveLevel);
@@ -296,7 +292,7 @@ function handleTodo(block: DocxBlock, ctx: RenderContext): string {
 }
 
 // --- 代码块 ---
-function handleCode(block: DocxBlock, ctx: RenderContext): string {
+function handleCode(block: DocxBlock, _ctx: RenderContext): string {
     const data = block.code;
     if (!data) return '';
 
@@ -305,9 +301,7 @@ function handleCode(block: DocxBlock, ctx: RenderContext): string {
     const language = CODE_LANGUAGE_MAP[langEnum] || 'plaintext';
 
     // 提取纯文本内容（不应用任何内联样式）
-    const codeText = (data.elements || [])
-        .map(el => el.text_run?.content || '')
-        .join('');
+    const codeText = (data.elements || []).map(el => el.text_run?.content || '').join('');
 
     return `\`\`\`${language}\n${codeText}\`\`\`\n\n`;
 }
@@ -322,9 +316,11 @@ function handleQuote(block: DocxBlock, ctx: RenderContext): string {
     if (block.children && block.children.length > 0) {
         const childContent = ctx.renderChildren(block.children, ctx);
         // 对子块的每一行都添加 > 前缀
-        result += childContent.split('\n')
-            .map(line => line ? `> ${line}` : '>')
-            .join('\n') + '\n';
+        result +=
+            childContent
+                .split('\n')
+                .map(line => (line ? `> ${line}` : '>'))
+                .join('\n') + '\n';
     }
 
     return result + '\n';
@@ -336,8 +332,9 @@ function handleQuoteContainer(block: DocxBlock, ctx: RenderContext): string {
 
     const childContent = ctx.renderChildren(block.children, ctx);
     // 对所有子内容行添加引用前缀
-    const quoted = childContent.split('\n')
-        .map(line => line ? `> ${line}` : '>')
+    const quoted = childContent
+        .split('\n')
+        .map(line => (line ? `> ${line}` : '>'))
         .join('\n');
 
     return quoted + '\n\n';
@@ -374,7 +371,7 @@ function handleImage(block: DocxBlock, ctx: RenderContext): string {
     ctx.mediaTokens.push({
         token: data.token,
         name: data.alt,
-        type: 'image',
+        type: 'image'
     });
 
     // 生成基于相对路径的占位符（实际路径由主线程确定）
@@ -392,7 +389,7 @@ function handleFile(block: DocxBlock, ctx: RenderContext): string {
     ctx.mediaTokens.push({
         token: data.token,
         name: data.name,
-        type: 'file',
+        type: 'file'
     });
 
     const sanitizedTitle = sanitizeFileName(ctx.docTitle);
@@ -537,7 +534,7 @@ function handleGridColumn(block: DocxBlock, ctx: RenderContext): string {
 }
 
 // --- 嵌入页面 ---
-function handleIframe(block: DocxBlock, ctx: RenderContext): string {
+function handleIframe(block: DocxBlock, _ctx: RenderContext): string {
     const data = block.iframe;
     const url = data?.component?.url;
     if (!url) return '';

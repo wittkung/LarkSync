@@ -9,11 +9,12 @@ import { StateManager } from './core/stateManager';
 import { CONSTANTS } from './utils/constants';
 
 export class SyncTreeProvider implements vscode.TreeDataProvider<SyncNode> {
+    private _onDidChangeTreeData: vscode.EventEmitter<SyncNode | undefined | void> =
+        new vscode.EventEmitter<SyncNode | undefined | void>();
+    readonly onDidChangeTreeData: vscode.Event<SyncNode | undefined | void> =
+        this._onDidChangeTreeData.event;
 
-    private _onDidChangeTreeData: vscode.EventEmitter<SyncNode | undefined | void> = new vscode.EventEmitter<SyncNode | undefined | void>();
-    readonly onDidChangeTreeData: vscode.Event<SyncNode | undefined | void> = this._onDidChangeTreeData.event;
-
-    constructor(private syncEngine: SyncEngine) { }
+    constructor(private syncEngine: SyncEngine) {}
 
     refresh(): void {
         this._onDidChangeTreeData.fire();
@@ -38,11 +39,13 @@ export class SyncTreeProvider implements vscode.TreeDataProvider<SyncNode> {
             try {
                 await vscode.workspace.fs.stat(rootUri);
             } catch {
-                return [new SyncNode(
-                    '尚未同步 (点击开始同步)',
-                    rootUri,
-                    vscode.TreeItemCollapsibleState.None
-                )];
+                return [
+                    new SyncNode(
+                        '尚未同步 (点击开始同步)',
+                        rootUri,
+                        vscode.TreeItemCollapsibleState.None
+                    )
+                ];
             }
         }
 
@@ -65,11 +68,9 @@ export class SyncTreeProvider implements vscode.TreeDataProvider<SyncNode> {
                 const isDir = fileType === vscode.FileType.Directory;
 
                 if (isDir) {
-                    nodes.push(new SyncNode(
-                        name,
-                        childUri,
-                        vscode.TreeItemCollapsibleState.Collapsed
-                    ));
+                    nodes.push(
+                        new SyncNode(name, childUri, vscode.TreeItemCollapsibleState.Collapsed)
+                    );
                 } else {
                     // 获取相对路径 (去除前部可能因为操作系统差异导致的 \ 或 / 问题)
                     let relativePath = childUri.path.substring(rootUri.path.length);
@@ -88,18 +89,20 @@ export class SyncTreeProvider implements vscode.TreeDataProvider<SyncNode> {
                         description = '待同步';
                     }
 
-                    nodes.push(new SyncNode(
-                        name,
-                        childUri,
-                        vscode.TreeItemCollapsibleState.None,
-                        {
-                            command: 'vscode.open',
-                            title: '打开文件',
-                            arguments: [childUri]
-                        },
-                        description,
-                        tooltip
-                    ));
+                    nodes.push(
+                        new SyncNode(
+                            name,
+                            childUri,
+                            vscode.TreeItemCollapsibleState.None,
+                            {
+                                command: 'vscode.open',
+                                title: '打开文件',
+                                arguments: [childUri]
+                            },
+                            description,
+                            tooltip
+                        )
+                    );
                 }
             }
 
@@ -133,7 +136,10 @@ class SyncNode extends vscode.TreeItem {
         this.command = command;
 
         // 使用 ThemeIcon 保持与 VS Code 视觉一致
-        if (collapsibleState === vscode.TreeItemCollapsibleState.None && uri.fsPath.endsWith('.md')) {
+        if (
+            collapsibleState === vscode.TreeItemCollapsibleState.None &&
+            uri.fsPath.endsWith('.md')
+        ) {
             this.iconPath = vscode.ThemeIcon.File;
         } else if (collapsibleState !== vscode.TreeItemCollapsibleState.None) {
             this.iconPath = vscode.ThemeIcon.Folder;

@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import * as vscode from 'vscode';
 import { CONSTANTS } from '../utils/constants';
 import { FeishuApiError, FeishuAuthError, RateLimitError } from '../utils/errors';
@@ -8,7 +8,6 @@ import {
     WikiNode,
     WikiNodeListResponse,
     DriveMeta,
-    MetaBatchQueryRequest,
     MetaBatchQueryResponse,
     FeishuBaseResponse
 } from '../types';
@@ -20,6 +19,10 @@ export class FeishuClient {
     /** 用户级别 Token（OAuth 登录后设置，优先于 tenant token） */
     private userAccessToken: string = '';
     private pendingTokenRefresh: Promise<string> | null = null;
+
+    public isLoggedIn(): boolean {
+        return !!this.userAccessToken;
+    }
 
     /**
      * 设置用户级别的 access_token（由 OAuthManager 在登录后调用）
@@ -41,29 +44,40 @@ export class FeishuClient {
     constructor() {
         this.client = axios.create({
             baseURL: CONSTANTS.FEISHU_API_BASE,
-            timeout: 30000,
+            timeout: 30000
         });
 
         // Response Interceptor for Error Handling
         this.client.interceptors.response.use(
-            (response) => {
+            response => {
                 if (response.data && response.data.code !== undefined && response.data.code !== 0) {
                     if (response.data.code === 99991400) {
-                        return Promise.reject(new RateLimitError(response.data.msg, response.data.code));
+                        return Promise.reject(
+                            new RateLimitError(response.data.msg, response.data.code)
+                        );
                     }
-                    return Promise.reject(new FeishuApiError(response.data.msg, response.data.code, response.data));
+                    return Promise.reject(
+                        new FeishuApiError(response.data.msg, response.data.code, response.data)
+                    );
                 }
                 return response;
             },
-            (error) => {
+            error => {
                 if (error.response) {
                     const status = error.response.status;
                     const data = error.response.data;
 
                     if (status === 429 || (status === 400 && data?.code === 99991400)) {
-                        return Promise.reject(new RateLimitError(data?.msg || 'Rate Limit Exceeded', data?.code || 429));
+                        return Promise.reject(
+                            new RateLimitError(
+                                data?.msg || 'Rate Limit Exceeded',
+                                data?.code || 429
+                            )
+                        );
                     }
-                    return Promise.reject(new FeishuApiError(data?.msg || error.message, data?.code || status, data));
+                    return Promise.reject(
+                        new FeishuApiError(data?.msg || error.message, data?.code || status, data)
+                    );
                 }
                 return Promise.reject(new FeishuApiError(`Network error: ${error.message}`));
             }
@@ -88,21 +102,27 @@ export class FeishuClient {
         const appSecret = config.get<string>('appSecret');
 
         if (!appId || !appSecret) {
-            throw new FeishuAuthError('App ID or App Secret is not configured. Please set them in VS Code settings.');
+            throw new FeishuAuthError(
+                'App ID or App Secret is not configured. Please set them in VS Code settings.'
+            );
         }
 
         this.pendingTokenRefresh = (async () => {
             try {
                 logger.info('Refreshing Feishu Tenant Access Token...');
-                const response = await axios.post<{ code: number, msg: string, tenant_access_token: string, expire: number }>(
-                    CONSTANTS.FEISHU_AUTH_URL,
-                    { app_id: appId, app_secret: appSecret }
-                );
+                const response = await axios.post<{
+                    code: number;
+                    msg: string;
+                    tenant_access_token: string;
+                    expire: number;
+                }>(CONSTANTS.FEISHU_AUTH_URL, { app_id: appId, app_secret: appSecret });
 
                 if (response.data.code === 0) {
                     this.tenantAccessToken = response.data.tenant_access_token;
                     // Refresh slightly before exact expiry to prevent race conditions
-                    this.tokenExpirationTime = Date.now() + (response.data.expire - CONSTANTS.TOKEN_REFRESH_MARGIN_SEC) * 1000;
+                    this.tokenExpirationTime =
+                        Date.now() +
+                        (response.data.expire - CONSTANTS.TOKEN_REFRESH_MARGIN_SEC) * 1000;
                     return this.tenantAccessToken;
                 } else {
                     throw new FeishuAuthError(response.data.msg);
@@ -133,14 +153,21 @@ export class FeishuClient {
 
                 return response.data.data;
             },
-            (err) => err instanceof RateLimitError || err.response?.status === 429 || err.response?.status >= 500
+            err =>
+                err instanceof RateLimitError ||
+                err.response?.status === 429 ||
+                err.response?.status >= 500
         );
     }
 
     /**
      * Fetches child nodes of a given parent node or space.
      */
-    public async fetchWikiNodes(spaceId: string, pageToken?: string, parentNodeToken?: string): Promise<WikiNodeListResponse> {
+    public async fetchWikiNodes(
+        spaceId: string,
+        pageToken?: string,
+        parentNodeToken?: string
+    ): Promise<WikiNodeListResponse> {
         const params: any = { page_size: 50 };
         if (pageToken) params.page_token = pageToken;
         if (parentNodeToken) params.parent_node_token = parentNodeToken;
@@ -155,13 +182,18 @@ export class FeishuClient {
     /**
      * Recursively fetches the entire wiki tree.
      */
-    public async fetchAllWikiNodesRecursive(spaceId: string, parentNodeToken?: string): Promise<WikiNode[]> {
+    public async fetchAllWikiNodesRecursive(
+        spaceId: string,
+        parentNodeToken?: string
+    ): Promise<WikiNode[]> {
         let allNodes: WikiNode[] = [];
         let pageToken = '';
         let hasMore = true;
         let pageCount = 1;
 
-        logger.info(`Fetching Wiki Node list for Space: ${spaceId} ${parentNodeToken ? `(Parent: ${parentNodeToken})` : '(Root)'} - Page ${pageCount}...`);
+        logger.info(
+            `Fetching Wiki Node list for Space: ${spaceId} ${parentNodeToken ? `(Parent: ${parentNodeToken})` : '(Root)'} - Page ${pageCount}...`
+        );
 
         while (hasMore) {
             const data = await this.fetchWikiNodes(spaceId, pageToken, parentNodeToken);
@@ -190,7 +222,9 @@ export class FeishuClient {
     /**
      * Gets document metadata for multiple files to check their modify times.
      */
-    public async fetchDocsMetadata(docs: { token: string, type: string, title?: string }[]): Promise<Map<string, DriveMeta>> {
+    public async fetchDocsMetadata(
+        docs: { token: string; type: string; title?: string }[]
+    ): Promise<Map<string, DriveMeta>> {
         const metaMap = new Map<string, DriveMeta>();
         if (docs.length === 0) return metaMap;
 
@@ -212,7 +246,9 @@ export class FeishuClient {
                 doc_token: t.token,
                 doc_type: t.type === 'docx' ? 'docx' : 'doc'
             }));
-            logger.info(`Sending batch_query payload to Feishu: ${JSON.stringify({ request_docs: logDocsPayload })}`);
+            logger.info(
+                `Sending batch_query payload to Feishu: ${JSON.stringify({ request_docs: logDocsPayload })}`
+            );
 
             const data = await this.request<MetaBatchQueryResponse>({
                 url: '/drive/v1/metas/batch_query',
@@ -221,7 +257,7 @@ export class FeishuClient {
             });
 
             if (data && data.metas) {
-                data.metas.forEach((meta) => {
+                data.metas.forEach(meta => {
                     const d_token = meta.doc_token || meta.docs_token || meta.token;
                     if (d_token) {
                         metaMap.set(d_token, meta as DriveMeta);
@@ -242,11 +278,11 @@ export class FeishuClient {
 
         const response = await this.client.get(`/drive/v1/medias/${fileToken}/download`, {
             headers: { Authorization: `Bearer ${token}` },
-            responseType: 'arraybuffer',
+            responseType: 'arraybuffer'
         });
 
         return new Uint8Array(response.data);
     }
 }
 
-export const feishuClient = new FeishuClient();
+// export const feishuClient = new FeishuClient(); // Removed for DI

@@ -1,24 +1,47 @@
 import * as vscode from 'vscode';
 
+export enum LogLevel {
+    DEBUG = 'DEBUG',
+    INFO = 'INFO',
+    WARN = 'WARN',
+    ERROR = 'ERROR'
+}
+
 class Logger {
     private channel: vscode.OutputChannel;
+    private static instance: Logger;
 
-    constructor() {
+    private constructor() {
         this.channel = vscode.window.createOutputChannel('LarkSync');
     }
 
+    public static getInstance(): Logger {
+        if (!Logger.instance) {
+            Logger.instance = new Logger();
+        }
+        return Logger.instance;
+    }
+
+    public debug(msg: string) {
+        this.log(LogLevel.DEBUG, msg);
+    }
+
     public info(msg: string) {
-        this.log('INFO', msg);
+        this.log(LogLevel.INFO, msg);
     }
 
     public warn(msg: string) {
-        this.log('WARN', msg);
+        this.log(LogLevel.WARN, msg);
     }
 
     public error(msg: string, e?: any) {
-        this.log('ERROR', msg);
+        this.log(LogLevel.ERROR, msg);
         if (e) {
-            this.channel.appendLine(typeof e === 'string' ? e : e.message || String(e));
+            if (e instanceof Error) {
+                this.channel.appendLine(e.stack || e.message);
+            } else {
+                this.channel.appendLine(typeof e === 'string' ? e : String(e));
+            }
         }
     }
 
@@ -26,10 +49,12 @@ class Logger {
         this.channel.show();
     }
 
-    private log(level: string, msg: string) {
-        const time = new Date().toLocaleTimeString();
+    private log(level: LogLevel, msg: string) {
+        // Only log DEBUG in development or if a config flag is set, but for now we log everything
+        const time = new Date().toISOString();
         this.channel.appendLine(`[${time}] [${level}] ${msg}`);
     }
 }
 
-export const logger = new Logger();
+// Keep the export const logger for backwards compatibility, but use the singleton pattern internally
+export const logger = Logger.getInstance();

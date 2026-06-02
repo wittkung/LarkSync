@@ -42,11 +42,16 @@ export class StateManager {
         return this.state[documentId];
     }
 
-    public updateDocState(documentId: string, timestamp: number, cloudEditTime?: string, localRelativePath?: string) {
+    public updateDocState(
+        documentId: string,
+        timestamp: number,
+        cloudEditTime?: string,
+        localRelativePath?: string
+    ) {
         this.state[documentId] = {
             lastSyncTime: timestamp,
             cloudEditTime: cloudEditTime,
-            localRelativePath: localRelativePath,
+            localRelativePath: localRelativePath
         };
     }
 
@@ -74,7 +79,10 @@ export class StateManager {
             return true;
         }
 
-        if (!cloudEditTime && (Date.now() - docState.lastSyncTime < CONSTANTS.FALLBACK_CACHE_TTL_MS)) {
+        if (
+            !cloudEditTime &&
+            Date.now() - docState.lastSyncTime < CONSTANTS.FALLBACK_CACHE_TTL_MS
+        ) {
             return true;
         }
 

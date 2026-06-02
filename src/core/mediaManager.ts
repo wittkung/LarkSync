@@ -11,7 +11,7 @@
 
 import * as vscode from 'vscode';
 import pLimit from 'p-limit';
-import { feishuClient } from '../api/feishuClient';
+import { FeishuClient } from '../api/feishuClient';
 import { MediaTokenEntry } from '../types';
 import { CONSTANTS } from '../utils/constants';
 import { logger } from '../logger';
@@ -22,8 +22,11 @@ export class MediaManager {
     /** 已下载到本地的 Token 集合（用于跨文档去重） */
     private downloadedTokens: Set<string> = new Set();
 
-    constructor(rootUri: vscode.Uri) {
+    private feishuClient: FeishuClient;
+
+    constructor(rootUri: vscode.Uri, feishuClient: FeishuClient) {
         this.rootUri = rootUri;
+        this.feishuClient = feishuClient;
         this.assetsUri = vscode.Uri.joinPath(rootUri, CONSTANTS.ASSETS_DIR_NAME);
     }
 
@@ -79,20 +82,22 @@ export class MediaManager {
 
         // 使用 p-limit 控制并发下载
         const limit = pLimit(CONSTANTS.MEDIA_DOWNLOAD_CONCURRENCY);
-        const tasks = toDownload.map(entry => limit(async () => {
-            try {
-                const buffer = await feishuClient.downloadMedia(entry.token);
-                const ext = this.guessExtension(entry);
-                const fileName = entry.name || `${entry.token}${ext}`;
-                const fileUri = vscode.Uri.joinPath(docAssetsUri, fileName);
+        const tasks = toDownload.map(entry =>
+            limit(async () => {
+                try {
+                    const buffer = await this.feishuClient.downloadMedia(entry.token);
+                    const ext = this.guessExtension(entry);
+                    const fileName = entry.name || `${entry.token}${ext}`;
+                    const fileUri = vscode.Uri.joinPath(docAssetsUri, fileName);
 
-                await vscode.workspace.fs.writeFile(fileUri, buffer);
-                this.downloadedTokens.add(entry.token);
-                logger.info(`  已下载: ${fileName}`);
-            } catch (err: any) {
-                logger.error(`  下载失败 [${entry.token}]: ${err.message}`);
-            }
-        }));
+                    await vscode.workspace.fs.writeFile(fileUri, buffer);
+                    this.downloadedTokens.add(entry.token);
+                    logger.info(`  已下载: ${fileName}`);
+                } catch (err: any) {
+                    logger.error(`  下载失败 [${entry.token}]: ${err.message}`);
+                }
+            })
+        );
 
         await Promise.all(tasks);
     }

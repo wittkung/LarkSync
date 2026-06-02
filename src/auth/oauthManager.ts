@@ -81,13 +81,14 @@ export class OAuthManager implements vscode.UriHandler {
             // Step 2: 构建授权 URL
             const redirectUri = `${vscode.env.uriScheme}://kevintu.larksync/callback`;
             const state = crypto.randomBytes(16).toString('hex');
-            const authUrl = `${CONSTANTS.FEISHU_API_BASE}/authen/v1/authorize`
-                + `?app_id=${appId}`
-                + `&redirect_uri=${encodeURIComponent(redirectUri)}`
-                + `&response_type=code`
-                + `&state=${state}`
-                + `&code_challenge=${codeChallenge}`
-                + `&code_challenge_method=S256`;
+            const authUrl =
+                `${CONSTANTS.FEISHU_API_BASE}/authen/v1/authorize` +
+                `?app_id=${appId}` +
+                `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+                `&response_type=code` +
+                `&state=${state}` +
+                `&code_challenge=${codeChallenge}` +
+                `&code_challenge_method=S256`;
 
             // Step 3: 打开浏览器
             logger.info('打开飞书授权页面...');
@@ -161,13 +162,13 @@ export class OAuthManager implements vscode.UriHandler {
                 `${CONSTANTS.FEISHU_API_BASE}/authen/v1/oidc/refresh_access_token`,
                 {
                     grant_type: 'refresh_token',
-                    refresh_token: refreshToken,
+                    refresh_token: refreshToken
                 },
                 {
                     headers: {
                         'Content-Type': 'application/json; charset=utf-8',
-                        Authorization: `Bearer ${await this.getAppAccessToken(appId, appSecret)}`,
-                    },
+                        Authorization: `Bearer ${await this.getAppAccessToken(appId, appSecret)}`
+                    }
                 }
             );
 
@@ -229,13 +230,13 @@ export class OAuthManager implements vscode.UriHandler {
                 grant_type: 'authorization_code',
                 code,
                 code_verifier: codeVerifier,
-                redirect_uri: redirectUri,
+                redirect_uri: redirectUri
             },
             {
                 headers: {
                     'Content-Type': 'application/json; charset=utf-8',
-                    Authorization: `Bearer ${await this.getAppAccessToken(appId, appSecret)}`,
-                },
+                    Authorization: `Bearer ${await this.getAppAccessToken(appId, appSecret)}`
+                }
             }
         );
 
@@ -258,7 +259,7 @@ export class OAuthManager implements vscode.UriHandler {
     private async getAppAccessToken(appId: string, appSecret: string): Promise<string> {
         const response = await axios.post(CONSTANTS.FEISHU_AUTH_URL, {
             app_id: appId,
-            app_secret: appSecret,
+            app_secret: appSecret
         });
         return response.data?.tenant_access_token || response.data?.app_access_token || '';
     }
@@ -271,17 +272,13 @@ export class OAuthManager implements vscode.UriHandler {
      * 生成 128 字节随机 code_verifier
      */
     private generateCodeVerifier(): string {
-        return crypto.randomBytes(32)
-            .toString('base64url')
-            .slice(0, 128);
+        return crypto.randomBytes(32).toString('base64url').slice(0, 128);
     }
 
     /**
      * 基于 code_verifier 生成 S256 code_challenge
      */
     private generateCodeChallenge(verifier: string): string {
-        return crypto.createHash('sha256')
-            .update(verifier)
-            .digest('base64url');
+        return crypto.createHash('sha256').update(verifier).digest('base64url');
     }
 }
