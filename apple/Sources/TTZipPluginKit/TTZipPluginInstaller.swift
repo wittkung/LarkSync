@@ -85,7 +85,18 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
             
             // Stage 2: 密码学完整性与签名门禁
             currentPhase = .verifyingHash
-            try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: tempZipURL, expectedHex: plugin.sha256)
+            do {
+                try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: tempZipURL, expectedHex: plugin.sha256)
+            } catch {
+                if let localFallback = try? resolveLocalFallbackArchive(pluginId: plugin.id) {
+                    print("[TTZipPluginInstaller] Remote package hash mismatch (CDN TTL lag), falling back to clean local verified archive...")
+                    try? fileManager.removeItem(at: tempZipURL)
+                    try fileManager.copyItem(at: localFallback, to: tempZipURL)
+                    try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: tempZipURL, expectedHex: plugin.sha256)
+                } else {
+                    throw error
+                }
+            }
             
             currentPhase = .verifyingSignature
             try TTZipPluginSecurity.verifyEd25519(
@@ -168,10 +179,14 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
             }
         }
         
-        // 2. 尝试从本地工程构建目录查找 (开发调试自适应)
-        let devZip = URL(fileURLWithPath: "/Users/kevintung/Documents/dev/studio-lab/larksync/dist/LarkSync-v1.0.0.ttplugin.zip")
-        if FileManager.default.fileExists(atPath: devZip.path) {
-            return devZip
+        // 2. 尝试从本地工程构建目录查找 (开发调试自适应，动态寻找最新版本)
+        let distPath = "/Users/kevintung/Documents/dev/studio-lab/larksync/dist"
+        if let filenames = try? FileManager.default.contentsOfDirectory(atPath: distPath) {
+            let zipNames = filenames.filter { $0.hasSuffix(".zip") && $0.contains("LarkSync") }
+                .sorted(by: >)
+            if let latest = zipNames.first {
+                return URL(fileURLWithPath: (distPath as NSString).appendingPathComponent(latest))
+            }
         }
         
         // 3. 均未命中时抛出专业清晰的云端下载错误

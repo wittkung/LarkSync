@@ -38,13 +38,13 @@ struct TTZipPluginInstallerTests {
     @Test("Test Full Atomic Installation and Hot-Mounting Pipeline")
     @MainActor
     func testAtomicInstallPipeline() async throws {
-        let zipURL = URL(fileURLWithPath: "/Users/kevintung/Documents/dev/studio-lab/larksync/dist/LarkSync-v1.0.0.ttplugin.zip")
+        let fallback = TTZipMarketplaceService.fallbackPlugin
+        let zipURL = URL(fileURLWithPath: "/Users/kevintung/Documents/dev/studio-lab/larksync/dist/LarkSync-v\(fallback.version).ttplugin.zip")
         guard FileManager.default.fileExists(atPath: zipURL.path) else {
             return // 若本地未打包则跳过
         }
         
         let installer = TTZipPluginInstaller.shared
-        let fallback = TTZipMarketplaceService.fallbackPlugin
         let mockContext = MockHostContext()
         
         // 1. 执行端到端完整原子安装 (包含 SHA256 校验、Ed25519 验签、解压与 APFS 替换)
