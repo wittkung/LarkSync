@@ -36,8 +36,8 @@ echo "   ✅ Swift 测试套件 100% 通过。"
 # Stage 3: SSOT Release Packaging & Crypto Verification
 # -----------------------------------------------------------------------------
 echo ""
-echo "📦 [3/6] 执行 SSOT 原子打包与 Ed25519 签名自检..."
-"${SCRIPT_DIR}/dev-release.sh" pack 1.0.1
+echo "📦 [3/6] 执行 SSOT 密码学与 Ed25519 签名自检..."
+"${SCRIPT_DIR}/dev-release.sh" verify 1.0.1
 echo "   ✅ SSOT 资产与哈希一致性 100% 吻合。"
 
 # -----------------------------------------------------------------------------

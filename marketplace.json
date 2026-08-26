@@ -1,7 +1,7 @@
 {
   "$schema": "https://ttzip.com/schemas/marketplace-v1.json",
   "version": 1,
-  "updatedAt": "2026-08-26T07:04:37Z",
+  "updatedAt": "2026-08-26T07:10:24Z",
   "plugins": [
     {
       "id": "com.ttzip.plugin.larksync",
@@ -13,9 +13,9 @@
       "minHostVersion": "1.0.0",
       "homepage": "https://github.com/wittkung/LarkSync",
       "downloadUrl": "https://github.com/wittkung/LarkSync/releases/download/v1.0.1/LarkSync-v1.0.1.ttplugin.zip",
-      "size": 3002098,
-      "sha256": "9bc5c666c21051f94c9e67e6e251bdb55cb9e4bd2f876542c8d997827741dd11",
-      "signature": "QrvBx5tMFBx280EHYZfFvgbjXW/+oCykcD/G/hDMc7acEmi5x1LbA8beZkLzhXwt+HyBFCIukDzKlUa/Na1lAg==",
+      "size": 3002099,
+      "sha256": "cde1dc50d84eebdb2b2946f993e99fba7ffb7ed0ab0904026299b2c50b21ad05",
+      "signature": "a5j34HPSDRkr6eh0diSEaezN0XLCvPTIT8L9fPRoiP6YmfXk2+AjQzDhAl76fNw4b4Rl0TWKSdj0TCRmVkYGDg==",
       "publicKey": "f1WZtTR4xp4EanpE1hGrjfSwt7Fffsy3MvmJNraK6c8=",
       "permissions": [
         "Network",
@@ -23,7 +23,7 @@
         "FS-Write",
         "ArchiveEngine"
       ],
-      "publishedAt": "2026-08-26T07:04:37Z"
+      "publishedAt": "2026-08-26T07:10:24Z"
     }
   ]
 }
