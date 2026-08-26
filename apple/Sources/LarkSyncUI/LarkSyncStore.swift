@@ -43,6 +43,7 @@ public final class LarkSyncStore {
     public var syncSubtreeRootToken: String? = nil
     public var syncSubtreeTitle: String? = nil
     
+    public var isConfigured: Bool = false
     public var isSyncing: Bool = false
     public var syncProgress: Double = 0.0
     public var lastSyncTime: Date?
@@ -53,6 +54,33 @@ public final class LarkSyncStore {
     
     public init(hostContext: TTZipHostContext? = nil) {
         self.hostContext = hostContext
+    }
+    
+    /// 从 Keychain 自动加载凭证并初始化引擎
+    public func loadCredentialsAndInitialize() async {
+        let keychain = hostContext?.keychain ?? SystemKeychainStore.shared
+        let appId = (try? await keychain.get(key: "lark_app_id")) ?? ""
+        let appSecret = (try? await keychain.get(key: "lark_app_secret")) ?? ""
+        
+        if !appId.isEmpty && !appSecret.isEmpty {
+            self.isConfigured = true
+            do {
+                try await initializeEngine(appId: appId, appSecret: appSecret, storagePath: "~/.larksync")
+            } catch {
+                self.statusMessage = "引擎初始化失败: \(error.localizedDescription)"
+            }
+        } else {
+            self.isConfigured = false
+            self.statusMessage = "未配置飞书 App ID 与 App Secret"
+        }
+    }
+    
+    /// 保存凭证到 Keychain 并重新初始化
+    public func saveCredentials(appId: String, appSecret: String) async throws {
+        let keychain = hostContext?.keychain ?? SystemKeychainStore.shared
+        try await keychain.set(key: "lark_app_id", value: appId.trimmingCharacters(in: .whitespacesAndNewlines))
+        try await keychain.set(key: "lark_app_secret", value: appSecret.trimmingCharacters(in: .whitespacesAndNewlines))
+        await loadCredentialsAndInitialize()
     }
     
     /// 设置选择性同步子树范围

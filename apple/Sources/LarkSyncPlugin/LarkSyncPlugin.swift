@@ -31,11 +31,7 @@ public final class LarkSyncPlugin: NSObject, TTZipPlugin {
     
     public func onInitialize(context: TTZipHostContext) async throws {
         self.hostContext = context
-        let appId = try await context.keychain.get(key: "lark_app_id") ?? ""
-        let appSecret = try await context.keychain.get(key: "lark_app_secret") ?? ""
-        if !appId.isEmpty && !appSecret.isEmpty {
-            try? await store.initializeEngine(appId: appId, appSecret: appSecret, storagePath: "~/.larksync")
-        }
+        await store.loadCredentialsAndInitialize()
     }
     
     public func onTerminate() async {}

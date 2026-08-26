@@ -110,3 +110,47 @@ public final class ScopedKeychainStore: TTZipKeychainStore, @unchecked Sendable 
         try await underlyingStore.delete(key: pluginPrefix + key)
     }
 }
+
+/// 原生 macOS Keychain 存储实现 (基于 Security.framework)
+public final class SystemKeychainStore: TTZipKeychainStore, @unchecked Sendable {
+    public static let shared = SystemKeychainStore()
+    private let service = "com.metastudyline.ttzip.plugins"
+    
+    public init() {}
+    
+    public func get(key: String) async throws -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        guard status == errSecSuccess, let data = item as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+    
+    public func set(key: String, value: String) async throws {
+        guard let data = value.data(using: .utf8) else { return }
+        try? await delete(key: key)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecValueData as String: data
+        ]
+        SecItemAdd(query as CFDictionary, nil)
+    }
+    
+    public func delete(key: String) async throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+}
+

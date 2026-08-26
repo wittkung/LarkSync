@@ -176,8 +176,9 @@ public final class DynamicDuckTypePluginAdapter: TTZipPlugin {
     }
     
     public func makeWorkspaceView(tabIdentifier: String) -> AnyView? {
-        if let plugin = rawInstance as? TTZipPlugin {
-            return plugin.makeWorkspaceView(tabIdentifier: tabIdentifier)
+        if let plugin = rawInstance as? TTZipPlugin,
+           let view = plugin.makeWorkspaceView(tabIdentifier: tabIdentifier) {
+            return view
         }
         return nil
     }
