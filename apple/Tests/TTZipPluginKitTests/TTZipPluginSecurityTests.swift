@@ -49,15 +49,15 @@ struct TTZipPluginSecurityTests {
     
     @Test("Test Real Production LarkSync Archive Ed25519 Verification")
     func testRealLarkSyncArchiveVerification() throws {
-        let zipURL = URL(fileURLWithPath: "/Users/kevintung/Documents/dev/studio-lab/larksync/dist/LarkSync-v1.0.0.ttplugin.zip")
+        let fallback = TTZipMarketplaceService.fallbackPlugin
+        let zipURL = URL(fileURLWithPath: "/Users/kevintung/Documents/dev/studio-lab/larksync/dist/LarkSync-v\(fallback.version).ttplugin.zip")
         guard FileManager.default.fileExists(atPath: zipURL.path) else {
             return // 若本地未打包则跳过
         }
         
-        let fallback = TTZipMarketplaceService.fallbackPlugin
-        
         // 1. 验证真实 SHA-256 哈希
         try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: zipURL, expectedHex: fallback.sha256)
+
         
         // 2. 验证真实 Ed25519 签名
         try TTZipPluginSecurity.verifyEd25519(

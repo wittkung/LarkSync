@@ -79,18 +79,18 @@ public actor TTZipMarketplaceService {
         id: "com.ttzip.plugin.larksync",
         name: "LarkSync",
         displayName: "飞书知识库双向同步",
-        version: "1.0.0",
+        version: "1.0.1",
         author: "Witt Kung & TTZip Team",
         description: "专为 TTZip 打造的飞书知识库双向增量同步与原生 Markdown 沉浸式管理插件。基于纯 Rust 核心与 3-Tree 差异状态机。",
         minHostVersion: "1.0.0",
         homepage: "https://github.com/wittkung/LarkSync",
-        downloadUrl: "https://github.com/wittkung/LarkSync/releases/download/v1.0.0/LarkSync-v1.0.0.ttplugin.zip",
-        size: 3002132,
-        sha256: "3ba1cd372edb249ed466405de7da7927ae4d1932b89bd775ed092b73b9163336",
-        signature: "1LwCt91tJs9c0/hCtHfSvNytjyoSY0q3NvN3cpeogSPw+dXMhCjY1pF7Vr/sw5z1B8mLX1rNjrM3Je9mky8WAg==",
+        downloadUrl: "https://github.com/wittkung/LarkSync/releases/download/v1.0.1/LarkSync-v1.0.1.ttplugin.zip",
+        size: 3002098,
+        sha256: "9bc5c666c21051f94c9e67e6e251bdb55cb9e4bd2f876542c8d997827741dd11",
+        signature: "QrvBx5tMFBx280EHYZfFvgbjXW/+oCykcD/G/hDMc7acEmi5x1LbA8beZkLzhXwt+HyBFCIukDzKlUa/Na1lAg==",
         publicKey: "f1WZtTR4xp4EanpE1hGrjfSwt7Fffsy3MvmJNraK6c8=",
         permissions: ["Network", "Keychain", "FS-Write", "ArchiveEngine"],
-        publishedAt: "2026-08-26T07:03:00Z"
+        publishedAt: "2026-08-26T07:04:37Z"
     )
     
     private init() {}
