@@ -99,7 +99,9 @@ public actor TTZipMarketplaceService {
     public func fetchMarketplaceIndex(from url: URL = defaultMarketplaceURL) async -> [TTZipMarketplacePlugin] {
         var request = URLRequest(url: url)
         request.timeoutInterval = 5.0
-        request.cachePolicy = .reloadRevalidatingCacheData
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
         
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
