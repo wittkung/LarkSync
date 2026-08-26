@@ -180,7 +180,38 @@ public final class DynamicDuckTypePluginAdapter: TTZipPlugin {
            let view = plugin.makeWorkspaceView(tabIdentifier: tabIdentifier) {
             return view
         }
+        
+        // 尝试通过导出的 C 函数获取
+        if let handle = dlopen(nil, RTLD_NOW),
+           let sym = dlsym(handle, "getLarkSyncWorkspaceView_c") {
+            typealias GetViewFn = @convention(c) (UnsafeMutableRawPointer, UnsafePointer<CChar>) -> UnsafeMutableRawPointer?
+            let fn = unsafeBitCast(sym, to: GetViewFn.self)
+            let rawPtr = Unmanaged.passUnretained(rawInstance).toOpaque()
+            if let resultPtr = tabIdentifier.withCString({ fn(rawPtr, $0) }) {
+                let nsView = Unmanaged<NSView>.fromOpaque(resultPtr).takeRetainedValue()
+                return AnyView(HostNativePluginViewWrapper(makeView: { nsView }))
+            }
+        }
         return nil
     }
 }
+
+#if os(macOS)
+import AppKit
+
+public struct HostNativePluginViewWrapper: NSViewRepresentable {
+    public let makeView: () -> NSView?
+    
+    public init(makeView: @escaping () -> NSView?) {
+        self.makeView = makeView
+    }
+    
+    public func makeNSView(context: Context) -> NSView {
+        makeView() ?? NSView()
+    }
+    
+    public func updateNSView(_ nsView: NSView, context: Context) {}
+}
+#endif
+
 

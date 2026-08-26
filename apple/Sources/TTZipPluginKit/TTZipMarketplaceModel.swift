@@ -85,12 +85,12 @@ public actor TTZipMarketplaceService {
         minHostVersion: "1.0.0",
         homepage: "https://github.com/wittkung/LarkSync",
         downloadUrl: "https://github.com/wittkung/LarkSync/releases/download/v1.0.0/LarkSync-v1.0.0.ttplugin.zip",
-        size: 17825000,
-        sha256: "e254775e2280ba1cce7b7087f7b663baff2c6e4b8c6ad200639226c8535c5650",
-        signature: "RB3DcpMkW2HOpK3Mh64gyxWXViTYyv2IWnfzd4gDQT5Ow+9oXRh6njlcYx3ncnMXXkpnmmT+Q9RGDiFM+zwjBw==",
+        size: 3002132,
+        sha256: "3ba1cd372edb249ed466405de7da7927ae4d1932b89bd775ed092b73b9163336",
+        signature: "1LwCt91tJs9c0/hCtHfSvNytjyoSY0q3NvN3cpeogSPw+dXMhCjY1pF7Vr/sw5z1B8mLX1rNjrM3Je9mky8WAg==",
         publicKey: "f1WZtTR4xp4EanpE1hGrjfSwt7Fffsy3MvmJNraK6c8=",
         permissions: ["Network", "Keychain", "FS-Write", "ArchiveEngine"],
-        publishedAt: "2026-08-26T12:00:00Z"
+        publishedAt: "2026-08-26T07:03:00Z"
     )
     
     private init() {}

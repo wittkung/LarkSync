@@ -83,3 +83,18 @@ public func createTTZipPlugin() -> UnsafeMutableRawPointer {
     let plugin = LarkSyncPlugin()
     return Unmanaged.passRetained(plugin).toOpaque()
 }
+
+#if os(macOS)
+import AppKit
+
+@_cdecl("getLarkSyncWorkspaceView_c")
+@MainActor
+public func getLarkSyncWorkspaceView_c(rawPluginPtr: UnsafeMutableRawPointer, tabIdCString: UnsafePointer<CChar>) -> UnsafeMutableRawPointer? {
+    let plugin = Unmanaged<LarkSyncPlugin>.fromOpaque(rawPluginPtr).takeUnretainedValue()
+    let tabId = String(cString: tabIdCString)
+    guard let view = plugin.makeWorkspaceView(tabIdentifier: tabId) else { return nil }
+    let nsView = NSHostingView(rootView: view)
+    return Unmanaged.passRetained(nsView).toOpaque()
+}
+#endif
+

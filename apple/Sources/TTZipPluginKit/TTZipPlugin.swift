@@ -33,3 +33,40 @@ public extension TTZipPlugin {
     var omnibarCommands: [TTZipCommandAction] { [] }
     var contextMenuActions: [TTZipContextMenuAction] { [] }
 }
+
+/// C-ABI 兼容的跨 Mach-O 虚函数表 (ABI v1)
+public struct TTZipPluginVTable_v1: Sendable {
+    public var structSize: Int
+    public var version: UInt32
+    
+    public var initialize: (@convention(c) (UnsafeRawPointer, UnsafeMutableRawPointer?) -> Int32)?
+    public var terminate: (@convention(c) (UnsafeRawPointer) -> Void)?
+    public var getManifestJSON: (@convention(c) (UnsafeRawPointer) -> UnsafePointer<CChar>?)?
+    public var releaseString: (@convention(c) (UnsafePointer<CChar>?) -> Void)?
+    public var makeWorkspaceView: (@convention(c) (UnsafeRawPointer, UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)?
+    public var makeInspectorView: (@convention(c) (UnsafeRawPointer) -> UnsafeMutableRawPointer?)?
+    public var destroyInstance: (@convention(c) (UnsafeRawPointer) -> Void)?
+    
+    public init(
+        structSize: Int = MemoryLayout<TTZipPluginVTable_v1>.size,
+        version: UInt32 = 1,
+        initialize: (@convention(c) (UnsafeRawPointer, UnsafeMutableRawPointer?) -> Int32)? = nil,
+        terminate: (@convention(c) (UnsafeRawPointer) -> Void)? = nil,
+        getManifestJSON: (@convention(c) (UnsafeRawPointer) -> UnsafePointer<CChar>?)? = nil,
+        releaseString: (@convention(c) (UnsafePointer<CChar>?) -> Void)? = nil,
+        makeWorkspaceView: (@convention(c) (UnsafeRawPointer, UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)? = nil,
+        makeInspectorView: (@convention(c) (UnsafeRawPointer) -> UnsafeMutableRawPointer?)? = nil,
+        destroyInstance: (@convention(c) (UnsafeRawPointer) -> Void)? = nil
+    ) {
+        self.structSize = structSize
+        self.version = version
+        self.initialize = initialize
+        self.terminate = terminate
+        self.getManifestJSON = getManifestJSON
+        self.releaseString = releaseString
+        self.makeWorkspaceView = makeWorkspaceView
+        self.makeInspectorView = makeInspectorView
+        self.destroyInstance = destroyInstance
+    }
+}
+
