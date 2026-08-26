@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TTZipMarketplaceIndex",
+  "type": "object",
+  "required": ["version", "updatedAt", "plugins"],
+  "properties": {
+    "version": { "type": "integer" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "plugins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "displayName",
+          "version",
+          "author",
+          "description",
+          "minHostVersion",
+          "downloadUrl",
+          "sha256",
+          "signature",
+          "publicKey",
+          "permissions"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "displayName": { "type": "string" },
+          "version": { "type": "string" },
+          "author": { "type": "string" },
+          "description": { "type": "string" },
+          "minHostVersion": { "type": "string" },
+          "homepage": { "type": "string" },
+          "downloadUrl": { "type": "string", "format": "uri" },
+          "size": { "type": "integer" },
+          "sha256": { "type": "string" },
+          "signature": { "type": "string" },
+          "publicKey": { "type": "string" },
+          "permissions": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "publishedAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

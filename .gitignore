@@ -1,6 +1,12 @@
 node_modules/
 out/
 dist/
+target/
+.build/
+.keys/
+.swiftpm/
+*.dylib
+*.dSYM
 .vscode-test/
 *.vsix
 .DS_Store

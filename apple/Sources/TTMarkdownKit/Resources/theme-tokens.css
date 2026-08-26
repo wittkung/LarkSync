@@ -1,0 +1,190 @@
+/* ==========================================================================
+   TTZip / ttsubs Unified Theme Token System
+   Philosophy: Zen (禅) Minimalism × WSJ Editorial Typography × Kintsugi Gold Line
+   ========================================================================== */
+
+:root {
+    /* Tier 1: TTZip 语义 Design Tokens (Light Theme: Washi Paper 和纸白) */
+    --ttzip-kintsugi-gold: #D4AF37;
+    --ttzip-kintsugi-gold-hover: #C5A028;
+    --ttzip-bamboo-green: #2E8B57;
+    --ttzip-cinnabar-red: #C84B31;
+    --ttzip-washi-paper: #FBFBFD;
+    --ttzip-ink-black: #0B0B0C;
+    --ttzip-deep-graphite: #1C1C1E;
+    
+    /* 材质与微质感 */
+    --ttzip-hairline-border: rgba(0, 0, 0, 0.08);
+    --ttzip-glass-bg: rgba(255, 255, 255, 0.72);
+    --ttzip-shadow-editorial: 0 4px 20px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+
+    /* Tier 2: Typora 社区主题标准兼容映射层 (Typora Semantic Shim) */
+    --bg-color: var(--ttzip-washi-paper);
+    --text-color: #24292E;
+    --text-muted: #6A737D;
+    --heading-color: var(--ttzip-ink-black);
+    --side-bar-bg-color: #F6F8FA;
+    --window-border: var(--ttzip-hairline-border);
+    --code-bg-color: rgba(27, 31, 35, 0.04);
+    --table-border-color: rgba(0, 0, 0, 0.1);
+    --active-file-bg-color: rgba(212, 175, 55, 0.12);
+    --active-file-text-color: var(--ttzip-ink-black);
+    --item-hover-bg-color: rgba(0, 0, 0, 0.04);
+    --primary-color: var(--ttzip-kintsugi-gold);
+    --selection-bg-color: rgba(212, 175, 55, 0.25);
+    
+    /* Tier 3: WSJ Editorial 排版特征 */
+    --editor-header-font: "New York", "Source Han Serif SC", "Songti SC", Georgia, serif;
+    --editor-body-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif;
+    --editor-mono-font: "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+/* 暗色模式覆盖 (Dark Theme: Deep Graphite / Ink Black) */
+[data-theme="dark"], html.dark {
+    --bg-color: var(--ttzip-ink-black);
+    --text-color: #ECECF1;
+    --text-muted: #8E8EA0;
+    --heading-color: #FFFFFF;
+    --side-bar-bg-color: var(--ttzip-deep-graphite);
+    --ttzip-hairline-border: rgba(255, 255, 255, 0.08);
+    --ttzip-glass-bg: rgba(28, 28, 30, 0.75);
+    --code-bg-color: rgba(255, 255, 255, 0.06);
+    --table-border-color: rgba(255, 255, 255, 0.12);
+    --active-file-bg-color: rgba(212, 175, 55, 0.18);
+    --active-file-text-color: #FFFFFF;
+    --item-hover-bg-color: rgba(255, 255, 255, 0.06);
+    --selection-bg-color: rgba(212, 175, 55, 0.35);
+}
+
+/* ==========================================================================
+   Typora #write 容器隔离排版规则
+   ========================================================================== */
+#write {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 38px 40px 120px;
+    font-family: var(--editor-body-font);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.7;
+    word-break: break-word;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* 一级标题：WSJ 典雅衬线体 + Kintsugi Gold 1.5pt 金线底边 */
+#write h1 {
+    font-family: var(--editor-header-font);
+    font-size: 2.25rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--heading-color);
+    padding-bottom: 0.35em;
+    border-bottom: 1.5px solid var(--ttzip-kintsugi-gold);
+    margin-top: 1.8em;
+    margin-bottom: 0.8em;
+}
+
+/* 二级标题：WSJ 典雅衬线体 + 左侧 3px 金线强调 */
+#write h2 {
+    font-family: var(--editor-header-font);
+    font-size: 1.65rem;
+    font-weight: 600;
+    color: var(--heading-color);
+    padding-left: 12px;
+    border-left: 3px solid var(--ttzip-kintsugi-gold);
+    margin-top: 1.6em;
+    margin-bottom: 0.6em;
+}
+
+#write h3 {
+    font-family: var(--editor-header-font);
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--heading-color);
+    margin-top: 1.4em;
+    margin-bottom: 0.5em;
+}
+
+/* 引用块 (Blockquote)：优雅金线左框与斜体衬线排版 */
+#write blockquote {
+    margin: 1.5em 0;
+    padding: 12px 20px;
+    border-left: 3px solid var(--ttzip-kintsugi-gold);
+    background: var(--item-hover-bg-color);
+    font-family: var(--editor-header-font);
+    font-style: italic;
+    color: var(--text-muted);
+    border-radius: 0 8px 8px 0;
+}
+
+/* 代码块 */
+#write pre, #write pre.md-fences {
+    background-color: var(--code-bg-color);
+    border-radius: 8px;
+    padding: 12px 16px;
+    border: 0.8px solid var(--ttzip-hairline-border);
+    font-family: var(--editor-mono-font);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    overflow-x: auto;
+}
+
+/* 表格 */
+#write table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5em 0;
+    font-size: 0.95rem;
+}
+#write table th, #write table td {
+    border: 1px solid var(--table-border-color);
+    padding: 10px 14px;
+    text-align: left;
+}
+#write table th {
+    background-color: var(--item-hover-bg-color);
+    font-weight: 600;
+}
+
+/* GFM Alert Callouts 融入 TTZip 东方美学色彩 */
+#write .markdown-alert {
+    padding: 12px 16px;
+    margin: 1.2em 0;
+    border-left: 3.5px solid;
+    border-radius: 4px 12px 12px 4px;
+    background: var(--item-hover-bg-color);
+    box-shadow: var(--ttzip-shadow-editorial);
+}
+#write .markdown-alert.markdown-alert-note {
+    border-left-color: var(--ttzip-kintsugi-gold);
+    background: rgba(212, 175, 55, 0.05);
+}
+#write .markdown-alert.markdown-alert-tip {
+    border-left-color: var(--ttzip-bamboo-green);
+    background: rgba(46, 139, 87, 0.06);
+}
+#write .markdown-alert.markdown-alert-caution {
+    border-left-color: var(--ttzip-cinnabar-red);
+    background: rgba(200, 75, 49, 0.06);
+}
+
+/* 打印与 PDF 导出分页控制 */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 20mm 15mm 20mm 15mm;
+    }
+    #write {
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+    #write h1, #write h2, #write h3 {
+        page-break-after: avoid;
+        break-after: avoid-page;
+    }
+    #write pre, #write table, #write .markdown-alert, #write blockquote {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+}

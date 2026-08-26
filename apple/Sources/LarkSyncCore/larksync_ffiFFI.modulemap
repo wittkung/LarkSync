@@ -1,0 +1,4 @@
+module larksync_ffiFFI {
+    header "larksync_ffiFFI.h"
+    export *
+}
