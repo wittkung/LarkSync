@@ -72,7 +72,7 @@ public struct TTZipMarketplacePlugin: Codable, Sendable, Identifiable {
 public actor TTZipMarketplaceService {
     public static let shared = TTZipMarketplaceService()
     
-    public static let defaultMarketplaceURL = URL(string: "https://raw.githubusercontent.com/KevinTungs/LarkSync/main/marketplace.json")!
+    public static let defaultMarketplaceURL = URL(string: "https://raw.githubusercontent.com/wittkung/LarkSync/main/marketplace.json")!
     
     /// 内置官方 Fallback 索引，确保即使离线/弱网环境下也能瞬时呈现官方生态
     public static let fallbackPlugin = TTZipMarketplacePlugin(
@@ -86,8 +86,8 @@ public actor TTZipMarketplaceService {
         homepage: "https://github.com/wittkung/LarkSync",
         downloadUrl: "https://github.com/wittkung/LarkSync/releases/download/v1.0.0/LarkSync-v1.0.0.ttplugin.zip",
         size: 17825000,
-        sha256: "9ae981abbdf2e8e83344251892cd0794241dea8f3f565c8a16817e497e56f751",
-        signature: "ZAUS4iqab39MzWhJs8TjM9tsO2vBmEFfy0FGeiF8QzoB2XkCC2FJcey5sQN1pCSMVEkEls7D5FifAtF5oGcBCg==",
+        sha256: "025c7410f0ada84a3c6b3230a66df0b53e4f1c741e97b85f5dd32221c577ce55",
+        signature: "btLAzUgz/MoTWSz9y8kGLDAYtHLQmHdJVKd2FgIIqYDPQFuXvTcWiz6cgGM61hwbh1/Vfhe5aWVFFw2AXEenAQ==",
         publicKey: "f1WZtTR4xp4EanpE1hGrjfSwt7Fffsy3MvmJNraK6c8=",
         permissions: ["Network", "Keychain", "FS-Write", "ArchiveEngine"],
         publishedAt: "2026-08-26T12:00:00Z"

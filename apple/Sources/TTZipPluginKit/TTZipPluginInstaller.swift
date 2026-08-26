@@ -47,6 +47,7 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30.0
         config.timeoutIntervalForResource = 300.0
+        config.httpAdditionalHeaders = ["User-Agent": "TTZip-App/1.0.0 (macOS; Apple Silicon)"]
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()
     
@@ -145,7 +146,9 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
             self.lastSampleTime = Date()
             self.lastBytesWritten = 0
             self.smoothedSpeed = 0
-            let task = self.urlSession.downloadTask(with: url)
+            var request = URLRequest(url: url)
+            request.setValue("TTZip-App/1.0.0 (macOS; Apple Silicon)", forHTTPHeaderField: "User-Agent")
+            let task = self.urlSession.downloadTask(with: request)
             task.resume()
         }
     }
