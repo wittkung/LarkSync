@@ -177,7 +177,9 @@
     "lint": "eslint src/ --ext .ts,.tsx",
     "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
-    "prepare": "husky"
+    "local-ci": "bash scripts/local-ci.sh",
+    "install:hooks": "bash scripts/install-git-hooks.sh",
+    "prepare": "husky && bash scripts/install-git-hooks.sh"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",

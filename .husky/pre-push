@@ -1,0 +1,5 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🛡️  [Husky Git Hook] 触发 pre-push 本地 CI/CD 质量门禁..."
+"$(git rev-parse --show-toplevel)/scripts/local-ci.sh"
