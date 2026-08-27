@@ -35,10 +35,17 @@ struct TenantAccessTokenResponse {
 
 impl LarkApiClient {
     pub fn new(app_id: String, app_secret: String) -> Self {
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .pool_idle_timeout(std::time::Duration::from_secs(90))
+            .build()
+            .unwrap_or_else(|_| Client::new());
+
         Self {
             app_id,
             app_secret,
-            client: Client::builder().build().unwrap(),
+            client,
             limiter: Arc::new(AdaptiveRateLimiter::new(10)),
             token_cache: Arc::new(RwLock::new(None)),
         }

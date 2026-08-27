@@ -127,7 +127,8 @@ impl LarkCoreEngine {
     where
         F: Fn(SyncProgressEvent) + Send + Sync,
     {
-        std::fs::create_dir_all(target_dir)?;
+        let target_dir_owned = target_dir.to_string();
+        tokio::task::spawn_blocking(move || std::fs::create_dir_all(&target_dir_owned)).await??;
         let remote_nodes = self.fetch_wiki_tree(space_id).await?;
         let filtered_nodes = Self::filter_subtree(&remote_nodes, root_node_token);
         let total = filtered_nodes.len() as u32;
@@ -147,13 +148,16 @@ impl LarkCoreEngine {
                 let markdown = self.convert_blocks_to_markdown(&node.title, blocks);
                 
                 let file_path = format!("{target_dir}/{}.md", node.title);
-                std::fs::write(&file_path, markdown.as_bytes())?;
-                
+                let storage = self.storage.clone();
                 let mut updated_node = node.clone();
                 let hash = blake3::hash(markdown.as_bytes());
                 updated_node.content_hash = *hash.as_bytes();
-                
-                self.storage.upsert_node(&updated_node, Some(&file_path))?;
+
+                tokio::task::spawn_blocking(move || -> Result<()> {
+                    std::fs::write(&file_path, markdown.as_bytes())?;
+                    storage.upsert_node(&updated_node, Some(&file_path))?;
+                    Ok(())
+                }).await??;
             }
         }
 
@@ -171,7 +175,12 @@ impl LarkCoreEngine {
     where
         F: Fn(SyncProgressEvent) + Send + Sync,
     {
-        let mut packer = StreamingArchivePacker::create(output_path, 3)?;
+        let output_path_owned = output_path.to_string();
+        let packer = tokio::task::spawn_blocking(move || {
+            StreamingArchivePacker::create(&output_path_owned, 3)
+        }).await??;
+        let packer = Arc::new(std::sync::Mutex::new(packer));
+
         let remote_nodes = self.fetch_wiki_tree(space_id).await?;
         let filtered_nodes = Self::filter_subtree(&remote_nodes, root_node_token);
         let total = filtered_nodes.len() as u32;
@@ -190,11 +199,22 @@ impl LarkCoreEngine {
                 let blocks = self.client.fetch_docx_blocks(&node.obj_token).await.unwrap_or_default();
                 let markdown = self.convert_blocks_to_markdown(&node.title, blocks);
                 let virtual_path = format!("{}.md", node.title);
-                packer.append_file_data(&virtual_path, markdown.as_bytes())?;
+                let packer_clone = packer.clone();
+                tokio::task::spawn_blocking(move || -> Result<()> {
+                    let mut guard = packer_clone.lock().map_err(|_| anyhow::anyhow!("Packer lock poisoned"))?;
+                    guard.append_file_data(&virtual_path, markdown.as_bytes())
+                }).await??;
             }
         }
 
-        packer.finish()?;
+        tokio::task::spawn_blocking(move || -> Result<()> {
+            let p = Arc::try_unwrap(packer)
+                .map_err(|_| anyhow::anyhow!("Failed to unwrap packer reference"))?
+                .into_inner()
+                .map_err(|_| anyhow::anyhow!("Packer mutex poisoned"))?;
+            p.finish()
+        }).await??;
+
         Ok(())
     }
 }

@@ -179,7 +179,7 @@ impl LocalMetadataStore {
                     node_token,
                     block.block_id,
                     block.parent_id,
-                    1, // BlockType id
+                    block.block_type as i32,
                     hash.as_bytes(),
                     order as i32
                 ],
