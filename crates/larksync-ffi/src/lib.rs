@@ -66,7 +66,7 @@ pub struct LarkSyncEngine {
     core: Arc<larksync_core::LarkCoreEngine>,
 }
 
-#[uniffi::export]
+#[uniffi::export(async_runtime = "tokio")]
 impl LarkSyncEngine {
     #[uniffi::constructor]
     pub fn new(config: LarkAuthConfig, storage_path: String) -> Result<Arc<Self>, LarkFfiError> {
@@ -153,3 +153,24 @@ impl LarkSyncEngine {
 }
 
 uniffi::setup_scaffolding!();
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_engine_initialization_and_markdown_conversion() {
+        let tmp = tempfile::tempdir().unwrap();
+        let storage_path = tmp.path().to_string_lossy().to_string();
+        let config = LarkAuthConfig {
+            app_id: "cli_test_app_id".to_string(),
+            app_secret: "cli_test_secret".to_string(),
+        };
+        let engine = LarkSyncEngine::new(config, storage_path).unwrap();
+        let md = "# Title\n\nBody content";
+        let json_result = engine.markdown_to_blocks_json(md.to_string());
+        assert!(json_result.is_ok());
+        let json_str = json_result.unwrap();
+        assert!(json_str.contains("Title"));
+    }
+}

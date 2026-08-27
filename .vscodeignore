@@ -1,37 +1,39 @@
-# 源文件（esbuild 已打包到 out/extension.js）
-src/**
-esbuild.mjs
-tsconfig.json
-**/*.ts
-!out/**/*.js
-**/*.map
-
-# 依赖（esbuild 已内联所有运行时依赖）
-node_modules/
-**/node_modules/
-
-# 开发工具
 .vscode/**
-.github/**
+.vscode-test/**
 .git/**
-
-# 构建脚本与配置
-build.ps1
-build.sh
+.github/**
+.agents/**
+.husky/**
+.keys/**
+.build/**
+target/**
+dist/**
+specs/**
+scripts/**
+apple/**
+crates/**
+docs/**
+node_modules/**
+src/**
+webview-ui/src/**
+webview-ui/node_modules/**
+webview-ui/public/**
+webview-ui/tsconfig*.json
+webview-ui/vite.config.ts
+webview-ui/package*.json
+.prettierignore
 .eslintrc*
-.prettierrc*
-
-# 测试
-**/__tests__/**
-**/test/**
-
-# 杂项文件
-.gradle/**
-.idea/**
-.mcp/**
-build/**
-*.iml
-test_feishu.js
-test_wiki.js
-.gitignore
+eslint.config.mjs
+esbuild.mjs
+tsconfig*.json
+Cargo.toml
+Cargo.lock
+Package.swift
+build.ps1
+marketplace.json
 *.vsix
+*.log
+**/*.ts
+**/*.rs
+**/*.swift
+**/*.map

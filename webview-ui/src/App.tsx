@@ -4,32 +4,53 @@ import { Header } from './components/Header'
 import { StatusCard } from './components/StatusCard'
 import { ConfigPanel } from './components/ConfigPanel'
 import { AuditLog } from './components/AuditLog'
+import { SetupGuideModal } from './components/SetupGuideModal'
+
+interface HealthState {
+  tokenValid: boolean;
+  appId?: string;
+  appSecret?: string;
+  hasAppId?: boolean;
+  hasAppSecret?: boolean;
+  spaceId: string;
+  syncDir: string;
+  lastSync: number | null;
+}
 
 function App() {
-  const [health, setHealth] = useState<any>({ 
+  const [health, setHealth] = useState<HealthState>({ 
     tokenValid: false, 
+    appId: '',
+    appSecret: '',
+    hasAppId: false,
+    hasAppSecret: false,
     spaceId: '', 
     syncDir: 'LarkDocs',
     lastSync: null
-  })
+  });
   
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+
   const [syncState, setSyncState] = useState<{
     syncing: boolean;
     progress: number;
     message: string;
-  }>({ syncing: false, progress: 0, message: '' })
+  }>({ syncing: false, progress: 0, message: '' });
 
-  const [logs, setLogs] = useState<{time: string, message: string}[]>([])
+  const [logs, setLogs] = useState<{time: string, message: string}[]>([]);
 
   useEffect(() => {
-    // Listen for messages from the extension
+    // Listen for messages from the extension host
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
-      const payload = message.payload || message.data; // payload compatibility
+      const payload = message.payload || message.data;
       
       switch (message.command) {
         case 'healthData':
-          setHealth(payload);
+          setHealth(prev => ({
+            ...prev,
+            ...payload
+          }));
           break;
         case 'syncProgress':
           if (payload.type === 'start') {
@@ -43,7 +64,7 @@ function App() {
             setLogs(prev => [{ time: new Date().toLocaleTimeString(), message: payload.message }, ...prev].slice(0, 50));
           } else if (payload.type === 'complete' || payload.type === 'error') {
             setSyncState(prev => ({ ...prev, syncing: false, message: payload.type === 'error' ? 'Failed' : 'Complete' }));
-            // Request fresh health
+            // Request fresh health data after sync cycle ends
             vscode.postMessage({ command: 'getHealth' });
           }
           break;
@@ -52,7 +73,7 @@ function App() {
 
     window.addEventListener('message', handleMessage);
     
-    // Initial fetch
+    // Initial fetch of configuration and health data
     vscode.postMessage({ command: 'getHealth' });
 
     return () => window.removeEventListener('message', handleMessage);
@@ -66,13 +87,13 @@ function App() {
     vscode.postMessage({ command: 'openFolder' });
   };
   
-  const handleConfigChange = (key: 'syncDir' | 'spaceId', value: string) => {
-    setHealth({ ...health, [key]: value });
+  const handleConfigChange = (key: 'syncDir' | 'spaceId' | 'appId' | 'appSecret', value: string) => {
+    setHealth(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSaveConfig = (key: string, value: string) => {
     vscode.postMessage({ command: 'saveConfig', payload: { key, value } });
-  }
+  };
 
   const handleImportCache = () => {
     vscode.postMessage({ command: 'importCacheFiles' });
@@ -94,6 +115,7 @@ function App() {
         <Header 
           onOpenFolder={handleOpenFolder} 
           onStartSync={handleStartSync} 
+          onOpenGuide={() => setIsGuideOpen(true)}
           syncing={syncState.syncing} 
           tokenValid={health.tokenValid} 
         />
@@ -117,19 +139,28 @@ function App() {
           <div className="space-y-8">
             <ConfigPanel 
               tokenValid={health.tokenValid}
+              appId={health.appId}
+              appSecret={health.appSecret}
               syncDir={health.syncDir}
               spaceId={health.spaceId}
               onConfigChange={handleConfigChange}
               onSaveConfig={handleSaveConfig}
               onImportCache={handleImportCache}
               onLogin={handleLogin}
+              onOpenGuide={() => setIsGuideOpen(true)}
             />
           </div>
         </div>
 
       </div>
+
+      {/* Setup Guide Modal */}
+      <SetupGuideModal 
+        isOpen={isGuideOpen} 
+        onClose={() => setIsGuideOpen(false)} 
+      />
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

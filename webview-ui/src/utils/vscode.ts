@@ -2,13 +2,13 @@
  * Wrapper for the VS Code webview API
  */
 
-interface VSCodeAPI {
-    postMessage(message: any): void;
-    getState(): any;
-    setState(state: any): void;
+interface VSCodeAPI<T = unknown> {
+    postMessage(message: unknown): void;
+    getState(): T | undefined;
+    setState(state: T): void;
 }
 
-declare const acquireVsCodeApi: () => VSCodeAPI;
+declare const acquireVsCodeApi: <T = unknown>() => VSCodeAPI<T>;
 
 class VSCodeWrapper {
     private readonly vsCodeApi: VSCodeAPI | undefined;
@@ -22,7 +22,7 @@ class VSCodeWrapper {
     /**
      * Post a message to the extension
      */
-    public postMessage(message: any) {
+    public postMessage(message: unknown) {
         if (this.vsCodeApi) {
             this.vsCodeApi.postMessage(message);
         } else {
@@ -33,19 +33,19 @@ class VSCodeWrapper {
     /**
      * Get the state representing the webview's current state
      */
-    public getState(): any {
+    public getState<T = unknown>(): T | undefined {
         if (this.vsCodeApi) {
-            return this.vsCodeApi.getState();
+            return this.vsCodeApi.getState() as T;
         } else {
             const state = localStorage.getItem('vscodeState');
-            return state ? JSON.parse(state) : undefined;
+            return state ? (JSON.parse(state) as T) : undefined;
         }
     }
 
     /**
      * Set the state representing the webview's current state
      */
-    public setState(state: any) {
+    public setState<T = unknown>(state: T) {
         if (this.vsCodeApi) {
             this.vsCodeApi.setState(state);
         } else {

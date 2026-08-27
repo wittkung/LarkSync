@@ -139,6 +139,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-compat"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1ba85bc55464dcbf728b56d97e119d673f4cf9062be330a9a26f3acf504a590"
+dependencies = [
+ "futures-core",
+ "futures-io",
+ "once_cell",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
 name = "async-compression"
 version = "0.4.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1013,7 +1026,7 @@ dependencies = [
 
 [[package]]
 name = "larksync-core"
-version = "1.0.0"
+version = "1.0.2"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1036,12 +1049,13 @@ dependencies = [
 
 [[package]]
 name = "larksync-ffi"
-version = "1.0.0"
+version = "1.0.2"
 dependencies = [
  "anyhow",
  "larksync-core",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
  "tokio",
  "uniffi",
@@ -2123,6 +2137,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc7687007d2546c454d8ae609b105daceb88175477dac280707ad6d95bcd6f1f"
 dependencies = [
  "anyhow",
+ "async-compat",
  "bytes",
  "log",
  "once_cell",

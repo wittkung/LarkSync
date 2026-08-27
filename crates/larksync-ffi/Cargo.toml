@@ -11,7 +11,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]
 larksync-core = { path = "../larksync-core" }
-uniffi = { workspace = true }
+uniffi = { workspace = true, features = ["tokio"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -21,3 +21,6 @@ tokio = { workspace = true }
 [[bin]]
 name = "uniffi-bindgen"
 path = "src/bin/uniffi-bindgen.rs"
+
+[dev-dependencies]
+tempfile = "3.12"

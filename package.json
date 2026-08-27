@@ -2,7 +2,7 @@
   "name": "larksync",
   "displayName": "LarkSync",
   "description": "Sync Feishu Knowledge Base to local Markdown automatically",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "kevintung",
   "repository": {
     "type": "git",

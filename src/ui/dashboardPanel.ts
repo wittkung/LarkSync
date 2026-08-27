@@ -112,11 +112,23 @@ export class DashboardPanel {
                 setTimeout(() => clearInterval(pollTimer), 60000); // 1 min timeout
                 return;
             }
+            case 'openExternalUrl':
+                if (payload && typeof payload === 'string') {
+                    vscode.env.openExternal(vscode.Uri.parse(payload));
+                }
+                return;
             case 'saveConfig':
                 if (payload && payload.key && typeof payload.value === 'string') {
-                    vscode.workspace
+                    await vscode.workspace
                         .getConfiguration()
-                        .update(payload.key, payload.value, vscode.ConfigurationTarget.Workspace);
+                        .update(
+                            payload.key,
+                            payload.value,
+                            vscode.workspace.workspaceFolders
+                                ? vscode.ConfigurationTarget.Workspace
+                                : vscode.ConfigurationTarget.Global
+                        );
+                    this.sendHealthData();
                 }
                 return;
         }
@@ -124,10 +136,12 @@ export class DashboardPanel {
 
     public sendHealthData() {
         const config = vscode.workspace.getConfiguration('larksync');
-        const hasAppId = !!config.get('appId');
-        const hasAppSecret = !!config.get('appSecret');
-        const spaceId = config.get('spaceId');
-        const syncDir = config.get('syncDirectory');
+        const appId = config.get<string>('appId') || '';
+        const appSecret = config.get<string>('appSecret') || '';
+        const hasAppId = !!appId;
+        const hasAppSecret = !!appSecret;
+        const spaceId = config.get<string>('spaceId') || '';
+        const syncDir = config.get<string>('syncDirectory') || '';
 
         // Use a lightweight check instead of full API call
         const tokenStatus = this.feishuClient.isLoggedIn();
@@ -151,7 +165,16 @@ export class DashboardPanel {
 
         this._panel.webview.postMessage({
             command: 'healthData',
-            payload: { hasAppId, hasAppSecret, tokenValid: tokenStatus, spaceId, syncDir, lastSync }
+            payload: {
+                appId,
+                appSecret,
+                hasAppId,
+                hasAppSecret,
+                tokenValid: tokenStatus,
+                spaceId,
+                syncDir,
+                lastSync
+            }
         });
     }
 

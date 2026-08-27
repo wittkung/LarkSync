@@ -6,7 +6,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "1.0.0"
+version = "1.0.2"
 edition = "2021"
 authors = ["Witt Kung <witt.w.kung@gmail.com>"]
 license = "BSD-3-Clause OR Apache-2.0"
@@ -29,4 +29,4 @@ tar = "0.4"
 slotmap = "1.0"
 blake3 = "1.5"
 tracing = "0.1"
-uniffi = { version = "0.28", default-features = false, features = ["cli"] }
+uniffi = { version = "0.28", default-features = false, features = ["cli", "tokio"] }

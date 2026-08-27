@@ -3,18 +3,25 @@ import React from 'react';
 interface HeaderProps {
   onOpenFolder: () => void;
   onStartSync: () => void;
+  onOpenGuide: () => void;
   syncing: boolean;
   tokenValid: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenFolder, onStartSync, syncing, tokenValid }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+  onOpenFolder, 
+  onStartSync, 
+  onOpenGuide, 
+  syncing, 
+  tokenValid 
+}) => {
   return (
     <header className="flex items-center justify-between pb-6 border-b border-vscode-panel-border/30">
       <div className="flex items-center gap-5">
         <div className="relative group cursor-default">
           <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-fuchsia-500 rounded-2xl blur opacity-25 group-hover:opacity-60 transition duration-1000 group-hover:duration-200"></div>
           <div className="relative h-12 w-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30 border border-white/10 overflow-hidden">
-             {/* Dynamic background effect inside icon */}
+            {/* Dynamic background effect inside icon */}
             <div className="absolute inset-0 bg-white/10 translate-y-12 group-hover:translate-y-0 transition-transform duration-500 ease-out"></div>
             <svg className="w-6 h-6 text-white relative z-10 animate-float" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -28,10 +35,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenFolder, onStartSync, synci
           <p className="text-sm text-vscode-description mt-1 opacity-80">Manage your Feishu Knowledge Base synchronisation</p>
         </div>
       </div>
-      <div className="flex gap-3">
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={onOpenGuide}
+          className="px-4 py-2.5 glass-panel hover:bg-white/10 text-indigo-300 hover:text-indigo-200 rounded-xl transition-all duration-300 text-sm font-semibold active:scale-95 flex items-center gap-1.5 border border-indigo-500/30 shadow-sm"
+          title="Open Feishu Configuration Guide"
+        >
+          <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          配置指引
+        </button>
         <button 
           onClick={onOpenFolder}
-          className="px-5 py-2.5 glass-panel hover:bg-vscode-button-secondaryHoverBg text-vscode-button-secondaryFg rounded-xl transition-all duration-300 text-sm font-semibold active:scale-95"
+          className="px-4 py-2.5 glass-panel hover:bg-vscode-button-secondaryHoverBg text-vscode-button-secondaryFg rounded-xl transition-all duration-300 text-sm font-semibold active:scale-95"
         >
           Open Folder
         </button>

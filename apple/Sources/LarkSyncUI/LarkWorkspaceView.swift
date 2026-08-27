@@ -11,6 +11,7 @@ import TTZipPluginKit
 public struct LarkWorkspaceView: View {
     @State private var store: LarkSyncStore
     @State private var showConfigSheet: Bool = false
+    @State private var showGuideSheet: Bool = false
     @State private var inputAppId: String = ""
     @State private var inputAppSecret: String = ""
     
@@ -37,37 +38,40 @@ public struct LarkWorkspaceView: View {
         .sheet(isPresented: $showConfigSheet) {
             configModalSheet
         }
+        .sheet(isPresented: $showGuideSheet) {
+            LarkSetupGuideSheetView(isPresented: $showGuideSheet)
+        }
     }
     
     private var mainWorkspaceContent: some View {
         VStack(spacing: 0) {
-            // 1. WSJ 52pt 顶栏与金线
+            // 1. WSJ 52pt header bar with Kintsugi gold accent line
             headerView
             
-            // 2. 同步范围提示栏 (Selective Subtree Banner)
+            // 2. Selective subtree sync scope banner
             subtreeScopeBanner
             
-            // 3. 3 栏米勒列工作区
+            // 3. Three-column Miller Columns workspace
             HSplitView {
-                // 第一栏：空间列表
+                // Column 1: Wiki spaces list
                 spacesColumn
                     .frame(minWidth: 200, idealWidth: 220, maxWidth: 280)
                 
-                // 第二栏：知识库拓扑树
+                // Column 2: Wiki topological directory tree
                 wikiTreeColumn
                     .frame(minWidth: 240, idealWidth: 280, maxWidth: 380)
                 
-                // 第三栏：类 Typora 所见即所得编辑器 / 欢迎页
+                // Column 3: Typora-like WYSIWYG editor or welcome state
                 editorColumn
                     .frame(minWidth: 420, maxWidth: .infinity)
             }
             
-            // 4. 底部同步状态与进度条
+            // 4. Bottom sync status bar with progress indicator
             bottomStatusBar
         }
     }
     
-    // MARK: - 全屏 Onboarding Hero 向导
+    // MARK: - Onboarding Hero Guide
     private var onboardingHeroView: some View {
         VStack(spacing: 24) {
             Spacer()
@@ -102,17 +106,28 @@ public struct LarkWorkspaceView: View {
                         .textFieldStyle(.roundedBorder)
                 }
                 
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     Button(action: {
-                        if let url = URL(string: "https://open.feishu.cn/app") {
-                            NSWorkspace.shared.open(url)
-                        }
+                        showGuideSheet = true
                     }) {
-                        Label("前往飞书开放平台创建应用", systemImage: "arrow.up.right.square")
-                            .font(.system(size: 11))
+                        HStack(spacing: 5) {
+                            Image(systemName: "book.pages.fill")
+                                .font(.system(size: 11))
+                            Text("📖 飞书配置指南")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(TTZipTheme.kintsugiGold.opacity(0.08))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(TTZipTheme.kintsugiGold, lineWidth: 1)
+                        )
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
+                    .help("查看飞书开放平台自建应用与 4 大权限配置教学指南")
                     
                     Spacer()
                     
@@ -122,7 +137,7 @@ public struct LarkWorkspaceView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 0.83, green: 0.68, blue: 0.21))
+                    .tint(TTZipTheme.kintsugiGold)
                     .disabled(inputAppId.isEmpty || inputAppSecret.isEmpty)
                 }
             }
@@ -142,7 +157,7 @@ public struct LarkWorkspaceView: View {
     }
 
     
-    // MARK: - 选中节点加载本地文档
+    // MARK: - Document Loading & Persistence
     private func loadLocalDocument(nodeToken: String) {
         guard let node = store.wikiNodes.first(where: { $0.nodeToken == nodeToken }) else { return }
         let spaceId = store.selectedSpaceId ?? ""
@@ -163,7 +178,7 @@ public struct LarkWorkspaceView: View {
         try? content.write(toFile: targetFile, atomically: true, encoding: .utf8)
     }
     
-    // MARK: - 顶栏
+    // MARK: - Header Bar
     private var headerView: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
@@ -178,7 +193,7 @@ public struct LarkWorkspaceView: View {
                 
                 Spacer()
                 
-                // 刷新空间列表按钮
+                // Refresh spaces button
                 Button(action: {
                     Task { await store.refreshSpaces() }
                 }) {
@@ -189,7 +204,7 @@ public struct LarkWorkspaceView: View {
                 .help("刷新知识库空间列表")
                 .disabled(store.isSyncing || !store.isConfigured)
                 
-                // 凭证设置按钮
+                // Credentials settings button
                 Button(action: {
                     showConfigSheet = true
                 }) {
@@ -205,7 +220,7 @@ public struct LarkWorkspaceView: View {
                 .background(Color.primary.opacity(0.06))
                 .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                 
-                // 全量/子树增量同步按钮
+                // Full space / selective subtree incremental sync button
                 Button(action: {
                     if !store.isConfigured {
                         showConfigSheet = true
@@ -234,7 +249,7 @@ public struct LarkWorkspaceView: View {
         }
     }
     
-    // MARK: - 同步范围横幅 (Subtree Banner)
+    // MARK: - Subtree Scope Banner
     @ViewBuilder
     private var subtreeScopeBanner: some View {
         if let title = store.syncSubtreeTitle {
@@ -268,7 +283,7 @@ public struct LarkWorkspaceView: View {
         }
     }
     
-    // MARK: - 第一栏：空间列表
+    // MARK: - Column 1: Spaces List
     private var spacesColumn: some View {
         VStack(spacing: 0) {
             HStack {
@@ -347,7 +362,7 @@ public struct LarkWorkspaceView: View {
         .background(Color.primary.opacity(0.02))
     }
     
-    // MARK: - 第二栏：拓扑目录树
+    // MARK: - Column 2: Document Topology Tree
     private var wikiTreeColumn: some View {
         VStack(spacing: 0) {
             HStack {
@@ -455,11 +470,11 @@ public struct LarkWorkspaceView: View {
         .background(Color.primary.opacity(0.01))
     }
     
-    // MARK: - 第三栏：所见即所得编辑器 / 欢迎页
+    // MARK: - Column 3: WYSIWYG Editor & Welcome Screen
     private var editorColumn: some View {
         Group {
             if store.selectedNodeToken == nil {
-                // 欢迎空状态 (Typora-like Zen Onboarding)
+                // Typora-like Zen onboarding state
                 VStack(spacing: 20) {
                     Image(systemName: "doc.richtext.fill")
                         .font(.system(size: 44))
@@ -518,7 +533,7 @@ public struct LarkWorkspaceView: View {
         }
     }
     
-    // MARK: - 状态栏
+    // MARK: - Status Bar
     private var bottomStatusBar: some View {
         HStack(spacing: 12) {
             Circle()
@@ -547,13 +562,34 @@ public struct LarkWorkspaceView: View {
         .background(Color.primary.opacity(0.03))
     }
     
-    // MARK: - 凭证配置弹窗
+    // MARK: - Credentials Configuration Sheet
     private var configModalSheet: some View {
         VStack(spacing: 16) {
             HStack {
                 Text("配置飞书开放平台凭证")
                     .font(.system(size: 16, weight: .bold, design: .serif))
                 Spacer()
+                Button(action: {
+                    showGuideSheet = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "book.pages.fill")
+                            .font(.system(size: 10))
+                        Text("📖 飞书配置指南")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundStyle(TTZipTheme.kintsugiGold)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(TTZipTheme.kintsugiGold.opacity(0.08))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(TTZipTheme.kintsugiGold, lineWidth: 0.8)
+                    )
+                }
+                .buttonStyle(.plain)
+                .help("查看飞书开放平台配置教学指南")
             }
             
             Text("凭证将经过 macOS Keychain 加密保存，插件通过安全 OCap 机制访问。")

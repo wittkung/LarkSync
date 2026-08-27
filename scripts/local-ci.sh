@@ -37,7 +37,8 @@ echo "   ✅ Swift 测试套件 100% 通过。"
 # -----------------------------------------------------------------------------
 echo ""
 echo "📦 [3/6] 执行 SSOT 密码学与 Ed25519 签名自检..."
-"${SCRIPT_DIR}/dev-release.sh" verify 1.0.1
+CI_VERSION="$(python3 -c "import json; print(json.load(open('${REPO_ROOT}/package.json'))['version'])")"
+"${SCRIPT_DIR}/dev-release.sh" verify "${CI_VERSION}"
 echo "   ✅ SSOT 资产与哈希一致性 100% 吻合。"
 
 # -----------------------------------------------------------------------------
