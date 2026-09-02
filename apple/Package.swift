@@ -14,7 +14,7 @@ let swiftSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "LarkSync",
-    defaultLocalization: "zh-Hans",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v14)
     ],
@@ -34,7 +34,7 @@ let package = Package(
             publicHeadersPath: "include"
         ),
 
-        // 2. LarkSyncCore (Mozilla UniFFI 生成的强类型 Swift 接口)
+        // 2. LarkSyncCore (Mozilla UniFFI generated Swift interface)
         .target(
             name: "LarkSyncCore",
             dependencies: ["larksync_ffiFFI"],
@@ -53,7 +53,7 @@ let package = Package(
             ]
         ),
 
-        // 3. TTZip 官方开源插件 SDK (轻量协议与 8 大扩展点)
+        // 3. TTZip official plugin SDK
         .target(
             name: "TTZipPluginKit",
             path: "Sources/TTZipPluginKit",
@@ -61,7 +61,7 @@ let package = Package(
             swiftSettings: swiftSettings
         ),
         
-        // 4. 类 Typora 所见即所得 Markdown 引擎与主题渲染库
+        // 4. WYSIWYG Markdown engine and theme rendering kit
         .target(
             name: "TTMarkdownKit",
             dependencies: ["TTZipPluginKit"],
@@ -72,7 +72,7 @@ let package = Package(
             swiftSettings: swiftSettings
         ),
         
-        // 5. LarkSync 飞书知识库原生 UI 组件 (米勒列 / 检查器 / 编辑器)
+        // 5. LarkSync native UI components (Miller columns / inspector / editor)
         .target(
             name: "LarkSyncUI",
             dependencies: ["TTZipPluginKit", "TTMarkdownKit", "LarkSyncCore"],
@@ -80,7 +80,7 @@ let package = Package(
             swiftSettings: swiftSettings
         ),
         
-        // 6. LarkSync 官方标杆插件入口
+        // 6. LarkSync plugin dynamic entry
         .target(
             name: "LarkSyncPlugin",
             dependencies: ["TTZipPluginKit", "TTMarkdownKit", "LarkSyncCore", "LarkSyncUI"],
@@ -88,7 +88,7 @@ let package = Package(
             swiftSettings: swiftSettings
         ),
         
-        // 7. 单元测试套件
+        // 7. Unit test suite
         .testTarget(
             name: "TTZipPluginKitTests",
             dependencies: ["TTZipPluginKit", "TTMarkdownKit"],

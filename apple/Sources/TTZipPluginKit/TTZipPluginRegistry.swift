@@ -2,11 +2,13 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import Combine
 
-/// 统一插件注册与分发管理器 (Swift 6 Strict Concurrency & ObservableObject)
+/// Unified plugin registry and dispatch manager (Swift 6 Strict Concurrency & ObservableObject)
 @MainActor
 public final class TTZipPluginRegistry: ObservableObject {
     public static let shared = TTZipPluginRegistry()
@@ -18,19 +20,23 @@ public final class TTZipPluginRegistry: ObservableObject {
     @Published public private(set) var archiveSourceProviders: [TTZipArchiveSourceProvider] = []
     @Published public private(set) var contextMenuActions: [TTZipContextMenuAction] = []
     
+    private var pluginContexts: [String: TTZipHostContext] = [:]
+    
     private init() {}
     
-    /// 注册并初始化插件
+    /// Registers and initializes a plugin with its injected host context
     public func register(plugin: TTZipPlugin, context: TTZipHostContext) async {
         guard !installedPlugins.contains(where: { $0.manifest.id == plugin.manifest.id }) else {
             return
         }
         
+        pluginContexts[plugin.manifest.id] = context
+        
         do {
             try await plugin.onInitialize(context: context)
             installedPlugins.append(plugin)
             
-            // 收集 8 大扩展点
+            // Collect extension point contributions
             if let sidebar = plugin.sidebarItem {
                 sidebarItems.removeAll(where: { $0.id == sidebar.id })
                 sidebarItems.append(sidebar)
@@ -41,19 +47,23 @@ public final class TTZipPluginRegistry: ObservableObject {
             previewProviders.append(contentsOf: plugin.previewProviders)
             archiveSourceProviders.append(contentsOf: plugin.archiveSourceProviders)
             contextMenuActions.append(contentsOf: plugin.contextMenuActions)
-            
-            self.objectWillChange.send()
         } catch {
             print("[TTZipPluginRegistry] Failed to initialize plugin \(plugin.manifest.id): \(error)")
         }
     }
     
-    /// 卸载并终止插件
+    /// Unregisters and terminates a plugin, releasing its resources and subscription tokens
     public func unregister(pluginId: String) async {
+        if let scopedContext = pluginContexts.removeValue(forKey: pluginId) as? PluginScopedHostContext {
+            scopedContext.cleanupTokens()
+        } else {
+            pluginContexts.removeValue(forKey: pluginId)
+        }
+        
         guard let index = installedPlugins.firstIndex(where: { $0.manifest.id == pluginId }) else {
-            // 即使未在 installedPlugins，也强制清理孤立的 sidebarItems
-            sidebarItems.removeAll(where: { $0.id.hasPrefix(pluginId) || $0.id.contains("larksync") })
-            self.objectWillChange.send()
+            sidebarItems.removeAll(where: { $0.id.hasPrefix(pluginId) })
+            omnibarCommands.removeAll(where: { $0.id.hasPrefix(pluginId) })
+            contextMenuActions.removeAll(where: { $0.id.hasPrefix(pluginId) })
             return
         }
         
@@ -62,16 +72,23 @@ public final class TTZipPluginRegistry: ObservableObject {
         
         let targetSidebarId = plugin.sidebarItem?.id
         sidebarItems.removeAll(where: { item in
-            item.id.hasPrefix(pluginId) ||
-            item.id == targetSidebarId ||
-            (pluginId.contains("larksync") && item.id.contains("larksync"))
+            item.id.hasPrefix(pluginId) || item.id == targetSidebarId
         })
         
-        omnibarCommands.removeAll(where: { $0.id.hasPrefix(pluginId) || (pluginId.contains("larksync") && $0.id.contains("larksync")) })
-        previewProviders.removeAll(where: { _ in true })
-        archiveSourceProviders.removeAll(where: { _ in true })
-        contextMenuActions.removeAll(where: { _ in true })
+        let removedOmnibarIds = Set(plugin.omnibarCommands.map(\.id))
+        omnibarCommands.removeAll(where: { $0.id.hasPrefix(pluginId) || removedOmnibarIds.contains($0.id) })
         
-        self.objectWillChange.send()
+        let removedPreviewProviders = plugin.previewProviders
+        previewProviders.removeAll(where: { provider in
+            removedPreviewProviders.contains(where: { $0 === provider })
+        })
+        
+        let removedArchiveProviders = plugin.archiveSourceProviders
+        archiveSourceProviders.removeAll(where: { provider in
+            removedArchiveProviders.contains(where: { $0 === provider })
+        })
+        
+        let removedContextMenuIds = Set(plugin.contextMenuActions.map(\.id))
+        contextMenuActions.removeAll(where: { $0.id.hasPrefix(pluginId) || removedContextMenuIds.contains($0.id) })
     }
 }

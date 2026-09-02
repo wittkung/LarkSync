@@ -1,6 +1,9 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 //
-// TTZipPluginSecurityTests: Cryptographic verification and Zip Slip defense unit tests.
+// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
+// All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 import Testing
 import Foundation
@@ -12,7 +15,7 @@ struct TTZipPluginSecurityTests {
     
     @Test("Test Ed25519 Signature Generation and Verification Flow")
     func testEd25519CryptoKitRoundtrip() throws {
-        // 1. 生成真实 Ed25519 密钥对
+        // 1. Generate real Ed25519 key pair
         let privateKey = Curve25519.Signing.PrivateKey()
         let publicKey = privateKey.publicKey
         
@@ -22,19 +25,19 @@ struct TTZipPluginSecurityTests {
         let pubBase64 = publicKey.rawRepresentation.base64EncodedString()
         let sigBase64 = signature.base64EncodedString()
         
-        // 2. 写入临时文件测试
+        // 2. Write temporary file
         let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent("test-sec-\(UUID().uuidString).bin")
         try testData.write(to: tempFile)
         defer { try? FileManager.default.removeItem(at: tempFile) }
         
-        // 3. 验证正确签名
+        // 3. Verify valid signature
         try TTZipPluginSecurity.verifyEd25519(
             archiveFileURL: tempFile,
             signatureBase64: sigBase64,
             trustedPublicKeyBase64: pubBase64
         )
         
-        // 4. 篡改文件后验证必然失败
+        // 4. Tampered file must fail verification
         let tamperedData = "Tampered Content".data(using: .utf8)!
         try tamperedData.write(to: tempFile)
         
@@ -50,16 +53,27 @@ struct TTZipPluginSecurityTests {
     @Test("Test Real Production LarkSync Archive Ed25519 Verification")
     func testRealLarkSyncArchiveVerification() throws {
         let fallback = TTZipMarketplaceService.fallbackPlugin
-        let zipURL = URL(fileURLWithPath: "/Users/kevintung/Documents/dev/studio-lab/larksync/dist/LarkSync-v\(fallback.version).ttplugin.zip")
-        guard FileManager.default.fileExists(atPath: zipURL.path) else {
-            return // 若本地未打包则跳过
+        let currentDir = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let distURL = currentDir.appendingPathComponent("dist/LarkSync-v\(fallback.version).ttplugin.zip")
+        let parentDistURL = currentDir.deletingLastPathComponent().appendingPathComponent("dist/LarkSync-v\(fallback.version).ttplugin.zip")
+        
+        let targetURL: URL?
+        if FileManager.default.fileExists(atPath: distURL.path) {
+            targetURL = distURL
+        } else if FileManager.default.fileExists(atPath: parentDistURL.path) {
+            targetURL = parentDistURL
+        } else {
+            targetURL = nil
         }
         
-        // 1. 验证真实 SHA-256 哈希
-        try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: zipURL, expectedHex: fallback.sha256)
-
+        guard let zipURL = targetURL else {
+            return // Skip if distribution package is not built yet
+        }
         
-        // 2. 验证真实 Ed25519 签名
+        // 1. Verify SHA-256 hash
+        try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: zipURL, expectedHex: fallback.sha256)
+        
+        // 2. Verify Ed25519 signature
         try TTZipPluginSecurity.verifyEd25519(
             archiveFileURL: zipURL,
             signatureBase64: fallback.signature,
@@ -73,12 +87,12 @@ struct TTZipPluginSecurityTests {
         try FileManager.default.createDirectory(at: stagingDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: stagingDir) }
         
-        // 合法路径
+        // Safe destination path
         let safePath = "LarkSync.ttplugin/Contents/Info.plist"
         let safeURL = try TTZipPluginSecurity.validateSafeDestination(entryRelativePath: safePath, stagingRoot: stagingDir)
         #expect(safeURL.path.hasPrefix(stagingDir.path))
         
-        // 恶意穿越路径
+        // Malicious path traversal
         let maliciousPath = "../../Applications/EvilApp.app"
         #expect(throws: TTZipPluginSecurity.SecurityError.self) {
             _ = try TTZipPluginSecurity.validateSafeDestination(entryRelativePath: maliciousPath, stagingRoot: stagingDir)

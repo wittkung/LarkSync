@@ -1,6 +1,9 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 //
-// TTMarkdownKit: TTZipTheme design tokens system.
+// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
+// All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 

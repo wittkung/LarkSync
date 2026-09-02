@@ -2,11 +2,13 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import WebKit
 
-/// 类 Typora 所见即所得 Markdown 编辑器组件
+/// Typora-like WYSIWYG Markdown editor component.
 public struct TTZipEditorView: NSViewRepresentable {
     @Binding public var text: String
     public var isEditable: Bool
@@ -48,7 +50,7 @@ public struct TTZipEditorView: NSViewRepresentable {
     }
     
     public func updateNSView(_ nsView: WKWebView, context: Context) {
-        // 1. 内容双向同步
+        // 1. Bidirectional content sync
         if context.coordinator.cachedText != text {
             context.coordinator.cachedText = text
             nsView.callAsyncJavaScript(
@@ -60,7 +62,7 @@ public struct TTZipEditorView: NSViewRepresentable {
             )
         }
         
-        // 2. 外观主题模式响应式联动 (Dark / Light)
+        // 2. Responsive theme mode (Dark / Light)
         let themeName = colorScheme == .dark ? "dark" : "light"
         nsView.callAsyncJavaScript(
             "if (window.ttzipSetTheme) { window.ttzipSetTheme(themeName); }",
@@ -70,7 +72,7 @@ public struct TTZipEditorView: NSViewRepresentable {
             completionHandler: nil
         )
         
-        // 3. 动态注入外部 Typora 社区 CSS 主题
+        // 3. Dynamic custom CSS theme injection
         if let css = customThemeCSS, !css.isEmpty {
             nsView.callAsyncJavaScript(
                 "if (window.ttzipLoadCustomTheme) { window.ttzipLoadCustomTheme(customCSS); }",

@@ -1,6 +1,9 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 //
-// TTZipPluginKit: Internationalization & Localization (i18n) Engine.
+// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
+// All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 

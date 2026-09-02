@@ -1,17 +1,17 @@
 #!/bin/bash
 # ==============================================================================
 # scripts/local-ci.sh
-# LarkSync & TTZip 本地全自动化 CI/CD 质量门禁流水线 (Local-First Quality Pipeline)
+# LarkSync & TTZip local automated CI/CD quality gate pipeline (Local-First Quality Pipeline)
 # ==============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-TTZIP_APP_DIR="/Users/kevintung/Documents/dev/products/ttzip/apple"
+TTZIP_APP_DIR="${TTZIP_APP_DIR:-${REPO_ROOT}/../../apple}"
 
 echo "======================================================================"
-echo "🛡️  [Local CI/CD] 启动本地全链路自动化质量门禁流水线"
-echo "   时间: $(date '+%Y-%m-%d %H:%M:%S')"
+echo "🛡️  [Local CI/CD] Starting automated quality gate pipeline"
+echo "   Timestamp: $(date '+%Y-%m-%d %H:%M:%S')"
 echo "======================================================================"
 
 cd "${REPO_ROOT}"
@@ -20,74 +20,74 @@ cd "${REPO_ROOT}"
 # Stage 1: TypeScript Lint & Type Safety Check
 # -----------------------------------------------------------------------------
 echo ""
-echo "🔍 [1/8] 运行 TypeScript / ESLint 静态代码检查与类型安全验证..."
+echo "🔍 [1/8] Running TypeScript / ESLint static check & type safety validation..."
 npm run lint --silent
 npm run typecheck --silent
-echo "   ✅ TypeScript 静态类型与代码质量检查通过。"
+echo "   ✅ TypeScript static checks passed."
 
 # -----------------------------------------------------------------------------
 # Stage 2: Rust Core Engine & Workspace Tests
 # -----------------------------------------------------------------------------
 echo ""
-echo "🦀 [2/8] 运行 Rust 核心微内核单元与集成测试套件..."
+echo "🦀 [2/8] Running Rust core microkernel unit and integration test suite..."
 cargo test --manifest-path "${REPO_ROOT}/Cargo.toml" --quiet
-echo "   ✅ Rust 核心测试套件 100% 通过。"
+echo "   ✅ Rust core test suite 100% passed."
 
 # -----------------------------------------------------------------------------
 # Stage 3: Mozilla UniFFI Bindings Drift & Concurrency Check
 # -----------------------------------------------------------------------------
 echo ""
-echo "⚡ [3/8] 校验 Mozilla UniFFI Swift 绑定一致性与代码漂移..."
+echo "⚡ [3/8] Verifying Mozilla UniFFI Swift bindings consistency..."
 "${SCRIPT_DIR}/generate-bindings.sh" > /dev/null
 git diff --exit-code apple/Sources/LarkSyncCore apple/Sources/larksync_ffiFFI || {
-    echo "❌ [Error] UniFFI Swift 绑定发生漂移，请先提交或回滚生成产物！"
+    echo "❌ [Error] UniFFI Swift bindings drifted, please commit or reset generated artifacts!"
     exit 1
 }
-echo "   ✅ UniFFI Swift 绑定与 Swift 6 严格并发支持 100% 同步。"
+echo "   ✅ UniFFI Swift bindings synchronized with Swift 6 strict concurrency."
 
 # -----------------------------------------------------------------------------
 # Stage 4: Swift 6 Strict Concurrency & Native Test Suite
 # -----------------------------------------------------------------------------
 echo ""
-echo "🦅 [4/8] 运行 Swift 6 严格并发测试套件 (TTZipPluginKit & UI Tests)..."
+echo "🦅 [4/8] Running Swift 6 strict concurrency test suite (TTZipPluginKit & UI Tests)..."
 swift test --quiet
-echo "   ✅ Swift 测试套件 100% 通过。"
+echo "   ✅ Swift test suite 100% passed."
 
 # -----------------------------------------------------------------------------
 # Stage 5: VS Code Extension Compile & Webview Bundle Verification
 # -----------------------------------------------------------------------------
 echo ""
-echo "📦 [5/8] 编译验证 VS Code 扩展与 Webview 仪表盘前端..."
+echo "📦 [5/8] Compiling VS Code extension and Webview dashboard bundle..."
 npm run compile --silent
-echo "   ✅ VS Code 扩展编译与 Webview 构建通过。"
+echo "   ✅ VS Code extension compile & Webview build passed."
 
 # -----------------------------------------------------------------------------
 # Stage 6: SSOT Release Packaging & Crypto Verification
 # -----------------------------------------------------------------------------
 echo ""
-echo "🔑 [6/8] 执行 SSOT 密码学与 Ed25519 签名自检..."
+echo "🔑 [6/8] Executing SSOT cryptographic integrity and Ed25519 signature checks..."
 CI_VERSION="$(python3 -c "import json; print(json.load(open('${REPO_ROOT}/package.json'))['version'])")"
 "${SCRIPT_DIR}/dev-release.sh" verify "${CI_VERSION}"
-echo "   ✅ SSOT 资产与哈希一致性 100% 吻合。"
+echo "   ✅ SSOT assets and hash consistency verified."
 
 # -----------------------------------------------------------------------------
 # Stage 7: Live Network E2E Gate
 # -----------------------------------------------------------------------------
 echo ""
-echo "🌐 [7/8] 探测真实公网 CDN 资产可达性与密码学校验..."
+echo "🌐 [7/8] Probing remote distribution assets and cryptographic integrity..."
 "${SCRIPT_DIR}/verify-distribution-e2e.sh"
-echo "   ✅ 真实公网分发 E2E 门禁 100% 通过。"
+echo "   ✅ Distribution E2E verification passed."
 
 # -----------------------------------------------------------------------------
 # Stage 8: Mach-O Linkage & Dyld Cleanliness Gate
 # -----------------------------------------------------------------------------
 echo ""
-echo "🔬 [8/8] 检查 TTZip 宿主 Mach-O 洁净度与 dyld 启动安全..."
+echo "🔬 [8/8] Inspecting Mach-O linkage and dyld startup security..."
 if [ -d "${TTZIP_APP_DIR}/dist/TTZip.app" ]; then
     "${SCRIPT_DIR}/verify_bundle_linkage.sh" "${TTZIP_APP_DIR}/dist/TTZip.app"
-    echo "   ✅ Mach-O 链接洁净度 100% 通过。"
+    echo "   ✅ Mach-O linkage integrity 100% passed."
 else
-    echo "   ⚠️ 未找到 ${TTZIP_APP_DIR}/dist/TTZip.app，跳过宿主 Mach-O 检查。"
+    echo "   ⚠️ ${TTZIP_APP_DIR}/dist/TTZip.app not found, skipping host Mach-O inspection."
 fi
 
 # -----------------------------------------------------------------------------
@@ -95,5 +95,5 @@ fi
 # -----------------------------------------------------------------------------
 echo ""
 echo "======================================================================"
-echo "🎉 [SUCCESS] 本地 CI/CD 全量质量门禁 100% PASS！允许 Git 提交/推送！"
+echo "🎉 [SUCCESS] Local CI/CD quality gate 100% PASS!"
 echo "======================================================================"

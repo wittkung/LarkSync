@@ -30,3 +30,4 @@ slotmap = "1.0"
 blake3 = "1.5"
 tracing = "0.1"
 uniffi = { version = "0.28", default-features = false, features = ["cli", "tokio"] }
+zeroize = { version = "1.8", features = ["derive", "alloc"] }

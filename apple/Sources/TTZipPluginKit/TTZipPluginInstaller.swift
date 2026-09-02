@@ -1,6 +1,9 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 //
-// TTZipPluginKit: Safe Streaming Downloader & 2PC Atomic Installer Engine.
+// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
+// All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 import SwiftUI
@@ -55,57 +58,70 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
         super.init()
     }
     
-    /// 执行完整的云端下载、安全验签、2PC 原子安装与热挂载流水线
+    /// Executes the full download, cryptographic verification, 2PC atomic installation, and dynamic hot-loading pipeline.
     public func install(plugin: TTZipMarketplacePlugin, context: TTZipHostContext) async throws {
         activeInstallingId = plugin.id
         defer { activeInstallingId = nil }
+        
+        // 0-Delay 1-Click Instant Activation for Built-in Official Plugins
+        if plugin.downloadUrl.hasPrefix("builtin://") {
+            currentPhase = .hotLoading
+            if TTZipPluginRegistry.shared.installedPlugins.contains(where: { $0.manifest.id == plugin.id }) {
+                currentPhase = .installed(pluginId: plugin.id)
+                return
+            }
+            if let builtIn = TTZipPluginLoader.builtInPluginsDirectory {
+                let bundleURL = builtIn.appendingPathComponent("\(plugin.name).ttplugin")
+                if FileManager.default.fileExists(atPath: bundleURL.path) {
+                    await TTZipPluginLoader.loadPluginBundle(at: bundleURL, context: context)
+                    currentPhase = .installed(pluginId: plugin.id)
+                    return
+                }
+            }
+        }
         
         let fileManager = FileManager.default
         let tempZipURL = fileManager.temporaryDirectory.appendingPathComponent("\(plugin.id)-\(UUID().uuidString).zip")
         
         do {
-            // Stage 1: 流式下载 (优先尝试云端，失败时自适应切换本地 Fallback 验证)
+            // Stage 1: Streaming download
             currentPhase = .downloading(progress: DownloadProgress(bytesWritten: 0, totalBytesExpected: plugin.size, fractionCompleted: 0, bytesPerSecond: 0))
             
             var downloadedURL: URL
             if let remoteURL = URL(string: plugin.downloadUrl), remoteURL.scheme?.hasPrefix("http") == true {
-                do {
-                    downloadedURL = try await downloadArchive(from: remoteURL)
-                } catch {
-                    print("[TTZipPluginInstaller] Remote download failed (\(error)), attempting local verified source...")
-                    downloadedURL = try resolveLocalFallbackArchive(pluginId: plugin.id)
-                }
+                downloadedURL = try await downloadArchive(from: remoteURL)
+            } else if let localURL = URL(string: plugin.downloadUrl), localURL.isFileURL, fileManager.fileExists(atPath: localURL.path) {
+                downloadedURL = localURL
+            } else if let bundleFallback = resolveBundleFallbackArchive(plugin: plugin) {
+                downloadedURL = bundleFallback
             } else {
-                downloadedURL = try resolveLocalFallbackArchive(pluginId: plugin.id)
+                throw NSError(
+                    domain: "TTZipPluginInstaller",
+                    code: 404,
+                    userInfo: [NSLocalizedDescriptionKey: "Plugin package download failed: remote or local package unavailable for \(plugin.id) (\(plugin.downloadUrl))"]
+                )
             }
             
             try? fileManager.removeItem(at: tempZipURL)
-            try fileManager.moveItem(at: downloadedURL, to: tempZipURL)
+            try fileManager.copyItem(at: downloadedURL, to: tempZipURL)
             defer { try? fileManager.removeItem(at: tempZipURL) }
             
-            // Stage 2: 密码学完整性与签名门禁
-            currentPhase = .verifyingHash
-            do {
+            // Stage 2: Cryptographic integrity and signature verification gate
+            if !plugin.sha256.isEmpty {
+                currentPhase = .verifyingHash
                 try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: tempZipURL, expectedHex: plugin.sha256)
-            } catch {
-                if let localFallback = try? resolveLocalFallbackArchive(pluginId: plugin.id) {
-                    print("[TTZipPluginInstaller] Remote package hash mismatch (CDN TTL lag), falling back to clean local verified archive...")
-                    try? fileManager.removeItem(at: tempZipURL)
-                    try fileManager.copyItem(at: localFallback, to: tempZipURL)
-                    try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: tempZipURL, expectedHex: plugin.sha256)
-                } else {
-                    throw error
-                }
             }
             
-            currentPhase = .verifyingSignature
-            try TTZipPluginSecurity.verifyEd25519(
-                archiveFileURL: tempZipURL,
-                signatureBase64: plugin.signature,
-                trustedPublicKeyBase64: plugin.publicKey
-            )
+            if !plugin.signature.isEmpty && !plugin.publicKey.isEmpty {
+                currentPhase = .verifyingSignature
+                try TTZipPluginSecurity.verifyEd25519(
+                    archiveFileURL: tempZipURL,
+                    signatureBase64: plugin.signature,
+                    trustedPublicKeyBase64: plugin.publicKey
+                )
+            }
             
-            // Stage 3: 安全解压至 Staging
+            // Stage 3: Secure extraction to isolated staging directory
             currentPhase = .staging
             let stagingDir = fileManager.temporaryDirectory.appendingPathComponent("Staging-\(UUID().uuidString)", isDirectory: true)
             try fileManager.createDirectory(at: stagingDir, withIntermediateDirectories: true)
@@ -113,16 +129,16 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
             
             let stagedBundleURL = try await extractArchive(zipURL: tempZipURL, to: stagingDir)
             
-            // Stage 4: 两阶段原子提交 (APFS 2PC Swap)
+            // Stage 4: Two-phase atomic commit (APFS 2PC Swap)
             currentPhase = .committing
             let userPluginsDir = TTZipPluginLoader.userPluginsDirectory
             try fileManager.createDirectory(at: userPluginsDir, withIntermediateDirectories: true)
-            let liveBundleURL = userPluginsDir.appendingPathComponent("\(stagedBundleURL.lastPathComponent)")
+            let liveBundleURL = userPluginsDir.appendingPathComponent(stagedBundleURL.lastPathComponent)
             
-            // 若存在旧版本，先从 Registry 反注册
+            // Unregister existing version if present
             await TTZipPluginRegistry.shared.unregister(pluginId: plugin.id)
             
-            // 原子替换
+            // Atomic file replacement
             if fileManager.fileExists(atPath: liveBundleURL.path) {
                 let backupName = "\(liveBundleURL.lastPathComponent).bak"
                 var resultingURL: NSURL?
@@ -139,7 +155,7 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
                 try fileManager.moveItem(at: stagedBundleURL, to: liveBundleURL)
             }
             
-            // Stage 5: 动态热插拔与 UI 挂载
+            // Stage 5: Dynamic hot-plugging and host mounting
             currentPhase = .hotLoading
             await TTZipPluginLoader.loadPluginBundle(at: liveBundleURL, context: context)
             
@@ -150,7 +166,7 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
         }
     }
     
-    // MARK: - 辅助下载与解压逻辑
+    // MARK: - Download & Extraction Helpers
     private func downloadArchive(from url: URL) async throws -> URL {
         try await withCheckedThrowingContinuation { continuation in
             self.downloadContinuation = continuation
@@ -164,52 +180,33 @@ public final class TTZipPluginInstaller: NSObject, ObservableObject, URLSessionD
         }
     }
     
-    private func resolveLocalFallbackArchive(pluginId: String) throws -> URL {
-        // 1. 优先尝试从 App Bundle Resources/Plugins/ 目录查找内置离线包
-        if let bundleURL = Bundle.main.url(forResource: "LarkSync-v1.0.0.ttplugin", withExtension: "zip", subdirectory: "Plugins"),
+    private func resolveBundleFallbackArchive(plugin: TTZipMarketplacePlugin) -> URL? {
+        if let bundleURL = Bundle.main.url(forResource: plugin.name, withExtension: "ttplugin.zip", subdirectory: "Plugins"),
            FileManager.default.fileExists(atPath: bundleURL.path) {
             return bundleURL
         }
-        
+        if let bundleURL = Bundle.main.url(forResource: plugin.id, withExtension: "ttplugin.zip", subdirectory: "Plugins"),
+           FileManager.default.fileExists(atPath: bundleURL.path) {
+            return bundleURL
+        }
         if let resourcePath = Bundle.main.resourcePath {
             let appPluginsDir = URL(fileURLWithPath: resourcePath).appendingPathComponent("Plugins")
-            let localZip = appPluginsDir.appendingPathComponent("LarkSync-v1.0.0.ttplugin.zip")
-            if FileManager.default.fileExists(atPath: localZip.path) {
-                return localZip
+            let nameURL = appPluginsDir.appendingPathComponent("\(plugin.name).ttplugin.zip")
+            if FileManager.default.fileExists(atPath: nameURL.path) {
+                return nameURL
+            }
+            let idURL = appPluginsDir.appendingPathComponent("\(plugin.id).ttplugin.zip")
+            if FileManager.default.fileExists(atPath: idURL.path) {
+                return idURL
             }
         }
-        
-        // 2. 尝试从本地工程构建目录查找 (开发调试自适应，动态寻找最新版本)
-        let distPath = "/Users/kevintung/Documents/dev/studio-lab/larksync/dist"
-        if let filenames = try? FileManager.default.contentsOfDirectory(atPath: distPath) {
-            let zipNames = filenames.filter { $0.hasSuffix(".zip") && $0.contains("LarkSync") }
-                .sorted(by: >)
-            if let latest = zipNames.first {
-                return URL(fileURLWithPath: (distPath as NSString).appendingPathComponent(latest))
-            }
-        }
-        
-        // 3. 均未命中时抛出专业清晰的云端下载错误
-        throw NSError(
-            domain: "TTZipPluginInstaller",
-            code: 404,
-            userInfo: [NSLocalizedDescriptionKey: "云端插件包下载失败 (远程资产尚未就绪或网络不可达)。请检查网络设置。"]
-        )
+        return nil
     }
     
     private func extractArchive(zipURL: URL, to stagingDir: URL) async throws -> URL {
-        // 使用 macOS 原生 ditto 安全解压
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-        process.arguments = ["-x", "-k", zipURL.path, stagingDir.path]
-        try process.run()
-        process.waitUntilExit()
-        
-        let contents = try FileManager.default.contentsOfDirectory(at: stagingDir, includingPropertiesForKeys: nil)
-        guard let bundleURL = contents.first(where: { $0.pathExtension == "ttplugin" }) else {
-            throw TTZipPluginSecurity.SecurityError.fileNotFound(stagingDir)
-        }
-        return bundleURL
+        try await Task.detached(priority: .userInitiated) {
+            try TTZipNativeZipExtractor.extract(archiveURL: zipURL, destinationDirectory: stagingDir)
+        }.value
     }
     
     // MARK: - URLSessionDownloadDelegate

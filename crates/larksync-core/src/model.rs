@@ -2,11 +2,13 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// 知识库空间元数据 (Wiki Space)
+/// Wiki space metadata.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WikiSpace {
     pub space_id: String,
@@ -15,7 +17,7 @@ pub struct WikiSpace {
     pub space_type: String,
 }
 
-/// 拓扑节点类型
+/// Topology node type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NodeType {
     Document = 1,
@@ -23,7 +25,7 @@ pub enum NodeType {
     ExternalLink = 3,
 }
 
-/// 知识库节点 (Wiki Node)
+/// Wiki node entity.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WikiNode {
     pub node_token: String,
@@ -39,7 +41,7 @@ pub struct WikiNode {
     pub content_hash: [u8; 32],
 }
 
-/// 飞书 DocX 块类型枚举
+/// Feishu / Lark DocX block type enumeration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlockType {
     Page = 1,
@@ -101,7 +103,7 @@ impl From<i32> for BlockType {
     }
 }
 
-/// 文本行内样式掩码
+/// Text run inline style mask.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct TextStyleMask {
     pub bold: bool,
@@ -113,7 +115,7 @@ pub struct TextStyleMask {
     pub background_color: Option<u8>,
 }
 
-/// 行内文本 Run
+/// Inline text run.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TextRun {
     pub content: String,
@@ -121,7 +123,7 @@ pub struct TextRun {
     pub link_url: Option<String>,
 }
 
-/// 飞书 DocX Block 实体
+/// Feishu / Lark DocX block entity.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DocxBlock {
     pub block_id: String,
@@ -133,7 +135,7 @@ pub struct DocxBlock {
     pub revision: i64,
 }
 
-/// 3-Tree 同步差异动作
+/// 3-Tree synchronization differential action.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SyncAction {
     UploadNew { node_token: String, local_path: String },
@@ -151,7 +153,7 @@ pub enum SyncAction {
     NoOp,
 }
 
-/// 同步进度事件
+/// Synchronization progress event.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncProgressEvent {
     pub current_step: String,
@@ -159,3 +161,4 @@ pub struct SyncProgressEvent {
     pub total_items: u32,
     pub current_item_name: String,
 }
+

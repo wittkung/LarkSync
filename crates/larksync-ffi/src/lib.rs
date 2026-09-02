@@ -74,7 +74,7 @@ impl LarkSyncEngine {
         Ok(Arc::new(Self { core: Arc::new(core) }))
     }
 
-    /// 异步拉取所有知识库空间
+    /// Asynchronously fetches all Wiki spaces.
     pub async fn fetch_spaces(&self) -> Result<Vec<WikiSpaceItem>, LarkFfiError> {
         let spaces = self.core.fetch_spaces().await?;
         Ok(spaces.into_iter().map(|s| WikiSpaceItem {
@@ -85,7 +85,7 @@ impl LarkSyncEngine {
         }).collect())
     }
 
-    /// 异步拉取知识库树
+    /// Asynchronously fetches Wiki tree nodes for a space.
     pub async fn fetch_wiki_tree(&self, space_id: String) -> Result<Vec<WikiNodeItem>, LarkFfiError> {
         let nodes = self.core.fetch_wiki_tree(&space_id).await?;
         Ok(nodes.into_iter().map(|n| WikiNodeItem {
@@ -99,7 +99,7 @@ impl LarkSyncEngine {
         }).collect())
     }
 
-    /// 执行端到端增量同步拉取（支持可选的指定子树根节点 Token）
+    /// Executes end-to-end incremental sync pull (with optional subtree root node token).
     pub async fn sync_pull(
         &self,
         space_id: String,
@@ -122,7 +122,7 @@ impl LarkSyncEngine {
         ).await.map_err(Into::into)
     }
 
-    /// 零落地流式导出为 TTZip（支持可选的指定子树根节点 Token）
+    /// Zero-copy streaming export to TTZip archive (with optional subtree root node token).
     pub async fn export_to_ttzip(
         &self,
         space_id: String,
@@ -145,11 +145,12 @@ impl LarkSyncEngine {
         ).await.map_err(Into::into)
     }
 
-    /// 将 Markdown 文本转换为 DocX Block JSON
+    /// Converts Markdown text into DocX Block JSON.
     pub fn markdown_to_blocks_json(&self, markdown: String) -> Result<String, LarkFfiError> {
         let blocks = self.core.convert_markdown_to_blocks(&markdown);
         serde_json::to_string(&blocks).map_err(|e| LarkFfiError::ApiError { msg: e.to_string() })
     }
+
 }
 
 uniffi::setup_scaffolding!();

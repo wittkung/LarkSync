@@ -1,20 +1,23 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 //
-// TTZipPluginKit: Root plugin protocol.
+// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
+// All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 
-/// 插件根协议 (Root Plugin Protocol)
+/// Root Plugin Protocol
 @MainActor
 public protocol TTZipPlugin: AnyObject {
-    /// 插件静态清单
+    /// Static plugin manifest
     var manifest: TTZipPluginManifest { get }
     
-    /// 生命周期钩子
+    /// Lifecycle hooks
     func onInitialize(context: TTZipHostContext) async throws
     func onTerminate() async
     
-    /// 8 大标准扩展点贡献 (默认提供空实现，插件按需覆盖)
+    /// Extension point contributions (default no-op implementations provided)
     var sidebarItem: TTZipSidebarContribution? { get }
     @ViewBuilder func makeWorkspaceView(tabIdentifier: String) -> AnyView?
     @ViewBuilder func makeInspectorView(selectedContext: Any?) -> AnyView?
@@ -34,7 +37,7 @@ public extension TTZipPlugin {
     var contextMenuActions: [TTZipContextMenuAction] { [] }
 }
 
-/// C-ABI 兼容的跨 Mach-O 虚函数表 (ABI v1)
+/// C-ABI compatible cross-Mach-O virtual method table (ABI v1)
 public struct TTZipPluginVTable_v1: Sendable {
     public var structSize: Int
     public var version: UInt32
@@ -69,4 +72,3 @@ public struct TTZipPluginVTable_v1: Sendable {
         self.destroyInstance = destroyInstance
     }
 }
-

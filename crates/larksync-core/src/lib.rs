@@ -2,25 +2,28 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
+pub mod archive;
 pub mod client;
 pub mod converter;
 pub mod diff;
 pub mod model;
-pub mod archive;
+pub mod path_sanitizer;
 pub mod storage;
 
 use anyhow::Result;
 use archive::StreamingArchivePacker;
 use client::LarkApiClient;
 use converter::{DocxToMarkdownConverter, MarkdownToDocxConverter};
-use diff::{ThreeTreeDiffEngine, Ast3WayMergeEngine, MergeResult};
-use model::{WikiNode, WikiSpace, DocxBlock, SyncAction, SyncProgressEvent};
+use diff::{Ast3WayMergeEngine, MergeResult, ThreeTreeDiffEngine};
+use model::{DocxBlock, SyncAction, SyncProgressEvent, WikiNode, WikiSpace};
 use storage::LocalMetadataStore;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-/// LarkSync 纯 Rust 核心引擎
+/// LarkSync pure Rust core engine.
 pub struct LarkCoreEngine {
     client: Arc<LarkApiClient>,
     pub storage: Arc<LocalMetadataStore>,
@@ -32,26 +35,32 @@ impl LarkCoreEngine {
         let client = Arc::new(LarkApiClient::new(app_id, app_secret));
         let db_file = format!("{storage_path}/larksync.db");
         std::fs::create_dir_all(&storage_path).ok();
-        let storage = Arc::new(LocalMetadataStore::open(db_file).unwrap_or_else(|_| LocalMetadataStore::in_memory().unwrap()));
-        Ok(Self { client, storage, storage_path })
+        let storage = Arc::new(
+            LocalMetadataStore::open(db_file).unwrap_or_else(|_| LocalMetadataStore::in_memory().unwrap()),
+        );
+        Ok(Self {
+            client,
+            storage,
+            storage_path,
+        })
     }
 
-    /// 获取可见空间列表
+    /// Fetches list of visible spaces.
     pub async fn fetch_spaces(&self) -> Result<Vec<WikiSpace>> {
         self.client.fetch_spaces().await
     }
 
-    /// 获取知识库树
+    /// Fetches Wiki tree nodes for a space.
     pub async fn fetch_wiki_tree(&self, space_id: &str) -> Result<Vec<WikiNode>> {
         self.client.fetch_all_nodes(space_id).await
     }
 
-    /// 拉取单个 DocX 文档的块树
+    /// Fetches block tree for a single DocX document.
     pub async fn fetch_docx_blocks(&self, document_id: &str) -> Result<Vec<DocxBlock>> {
         self.client.fetch_docx_blocks(document_id).await
     }
 
-    /// 执行 3-Tree 差异规划
+    /// Computes 3-Tree differential synchronization plan.
     pub fn compute_sync_plan(
         &self,
         local: HashMap<String, WikiNode>,
@@ -62,7 +71,7 @@ impl LarkCoreEngine {
         engine.plan_sync()
     }
 
-    /// 执行 3-Way AST 块级合并
+    /// Performs 3-Way AST block-level merge.
     pub fn merge_ast_blocks(
         &self,
         base: &[DocxBlock],
@@ -72,18 +81,18 @@ impl LarkCoreEngine {
         Ast3WayMergeEngine::merge(base, local, remote)
     }
 
-    /// DocX Blocks -> Markdown
+    /// Converts DocX blocks to Markdown.
     pub fn convert_blocks_to_markdown(&self, title: &str, blocks: Vec<DocxBlock>) -> String {
         let converter = DocxToMarkdownConverter::new(blocks);
         converter.convert(title)
     }
 
-    /// Markdown -> DocX Blocks
+    /// Converts Markdown to DocX blocks.
     pub fn convert_markdown_to_blocks(&self, markdown: &str) -> Vec<DocxBlock> {
         MarkdownToDocxConverter::convert(markdown)
     }
 
-    /// 拓扑子树过滤器：仅提取指定根目录及其所有递归后代节点
+    /// Subtree filter: extracts specified root node and all recursive descendant nodes.
     pub fn filter_subtree(nodes: &[WikiNode], root_token: Option<&str>) -> Vec<WikiNode> {
         let Some(root) = root_token else {
             return nodes.to_vec();
@@ -95,7 +104,10 @@ impl LarkCoreEngine {
         for n in nodes {
             node_map.insert(n.node_token.clone(), n.clone());
             if let Some(parent) = &n.parent_node_token {
-                children_map.entry(parent.clone()).or_default().push(n.node_token.clone());
+                children_map
+                    .entry(parent.clone())
+                    .or_default()
+                    .push(n.node_token.clone());
             }
         }
 
@@ -113,10 +125,14 @@ impl LarkCoreEngine {
             }
         }
 
-        nodes.iter().filter(|n| matched_tokens.contains(&n.node_token)).cloned().collect()
+        nodes
+            .iter()
+            .filter(|n| matched_tokens.contains(&n.node_token))
+            .cloned()
+            .collect()
     }
 
-    /// 全自动端到端增量同步拉取 (Pull)，支持选择性同步指定子树目录
+    /// Pulls and synchronizes a space incrementally with sanitized file paths.
     pub async fn sync_pull_space<F>(
         &self,
         space_id: &str,
@@ -137,17 +153,22 @@ impl LarkCoreEngine {
         for node in &filtered_nodes {
             processed += 1;
             on_progress(SyncProgressEvent {
-                current_step: "拉取文档".to_string(),
+                current_step: "Pulling document".to_string(),
                 processed_items: processed,
                 total_items: total,
                 current_item_name: node.title.clone(),
             });
 
             if node.obj_type == "docx" {
-                let blocks = self.client.fetch_docx_blocks(&node.obj_token).await.unwrap_or_default();
+                let blocks = self
+                    .client
+                    .fetch_docx_blocks(&node.obj_token)
+                    .await
+                    .unwrap_or_default();
                 let markdown = self.convert_blocks_to_markdown(&node.title, blocks);
-                
-                let file_path = format!("{target_dir}/{}.md", node.title);
+
+                let safe_title = path_sanitizer::sanitize_document_filename(&node.title, &node.node_token);
+                let file_path = format!("{target_dir}/{safe_title}.md");
                 let storage = self.storage.clone();
                 let mut updated_node = node.clone();
                 let hash = blake3::hash(markdown.as_bytes());
@@ -157,14 +178,15 @@ impl LarkCoreEngine {
                     std::fs::write(&file_path, markdown.as_bytes())?;
                     storage.upsert_node(&updated_node, Some(&file_path))?;
                     Ok(())
-                }).await??;
+                })
+                .await??;
             }
         }
 
         Ok(processed)
     }
 
-    /// 零落地内存流式打包：支持选择性导出指定子树目录
+    /// Zero-copy streaming export to ttzip archive without Arc::try_unwrap lock contention.
     pub async fn export_space_to_ttzip<F>(
         &self,
         space_id: &str,
@@ -178,8 +200,9 @@ impl LarkCoreEngine {
         let output_path_owned = output_path.to_string();
         let packer = tokio::task::spawn_blocking(move || {
             StreamingArchivePacker::create(&output_path_owned, 3)
-        }).await??;
-        let packer = Arc::new(std::sync::Mutex::new(packer));
+        })
+        .await??;
+        let packer = Arc::new(std::sync::Mutex::new(Some(packer)));
 
         let remote_nodes = self.fetch_wiki_tree(space_id).await?;
         let filtered_nodes = Self::filter_subtree(&remote_nodes, root_node_token);
@@ -189,31 +212,46 @@ impl LarkCoreEngine {
         for node in &filtered_nodes {
             processed += 1;
             on_progress(SyncProgressEvent {
-                current_step: "流式打包".to_string(),
+                current_step: "Streaming packaging".to_string(),
                 processed_items: processed,
                 total_items: total,
                 current_item_name: node.title.clone(),
             });
 
             if node.obj_type == "docx" {
-                let blocks = self.client.fetch_docx_blocks(&node.obj_token).await.unwrap_or_default();
+                let blocks = self
+                    .client
+                    .fetch_docx_blocks(&node.obj_token)
+                    .await
+                    .unwrap_or_default();
                 let markdown = self.convert_blocks_to_markdown(&node.title, blocks);
-                let virtual_path = format!("{}.md", node.title);
+                let safe_title = path_sanitizer::sanitize_document_filename(&node.title, &node.node_token);
+                let virtual_path = format!("{safe_title}.md");
                 let packer_clone = packer.clone();
                 tokio::task::spawn_blocking(move || -> Result<()> {
-                    let mut guard = packer_clone.lock().map_err(|_| anyhow::anyhow!("Packer lock poisoned"))?;
-                    guard.append_file_data(&virtual_path, markdown.as_bytes())
-                }).await??;
+                    let mut guard = packer_clone
+                        .lock()
+                        .map_err(|_| anyhow::anyhow!("Packer lock poisoned"))?;
+                    let p = guard
+                        .as_mut()
+                        .ok_or_else(|| anyhow::anyhow!("Packer already finished"))?;
+                    p.append_file_data(&virtual_path, markdown.as_bytes())
+                })
+                .await??;
             }
         }
 
         tokio::task::spawn_blocking(move || -> Result<()> {
-            let p = Arc::try_unwrap(packer)
-                .map_err(|_| anyhow::anyhow!("Failed to unwrap packer reference"))?
-                .into_inner()
-                .map_err(|_| anyhow::anyhow!("Packer mutex poisoned"))?;
+            let mut guard = packer
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Packer lock poisoned"))?;
+            let p = guard
+                .take()
+                .ok_or_else(|| anyhow::anyhow!("Packer already closed"))?;
             p.finish()
-        }).await??;
+        })
+
+        .await??;
 
         Ok(())
     }

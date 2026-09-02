@@ -54,16 +54,17 @@ fn test_filter_subtree_recursive() {
         },
     ];
 
-    // 1. 指定 root_1，只应返回 root_1 和 child_1
+    // 1. Specified root_1 should only return root_1 and child_1
     let subtree = LarkCoreEngine::filter_subtree(&nodes, Some("root_1"));
     assert_eq!(subtree.len(), 2);
     assert!(subtree.iter().any(|n| n.node_token == "root_1"));
     assert!(subtree.iter().any(|n| n.node_token == "child_1"));
     assert!(!subtree.iter().any(|n| n.node_token == "root_2"));
 
-    // 2. 不传 root_node_token，全量返回
+    // 2. Without root_node_token, all nodes should be returned
     let all = LarkCoreEngine::filter_subtree(&nodes, None);
     assert_eq!(all.len(), 3);
+
 }
 
 #[test]

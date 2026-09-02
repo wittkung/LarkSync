@@ -18,6 +18,7 @@ rusqlite = { workspace = true }
 zstd = { workspace = true }
 tar = { workspace = true }
 blake3 = { workspace = true }
+zeroize = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.12"

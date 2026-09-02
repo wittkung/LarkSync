@@ -1,10 +1,13 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 //
-// TTZipPluginKit: Open-source plugin SDK for TTZip / ttsubs ecosystems.
+// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
+// All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 
-/// 插件声明清单 (Declarative Plugin Manifest)
+/// Declarative Plugin Manifest
 public struct TTZipPluginManifest: Sendable, Codable, Identifiable {
     public let id: String
     public let name: String
@@ -36,7 +39,7 @@ public struct TTZipPluginManifest: Sendable, Codable, Identifiable {
     }
 }
 
-/// 基于能力安全模型的权限声明 (Object-Capability Security Permissions)
+/// Object-Capability Security Permissions
 public enum TTZipPluginPermission: String, Sendable, Codable {
     case networkAccess = "permission.network"
     case keychainAccess = "permission.keychain"

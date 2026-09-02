@@ -2,13 +2,15 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 use anyhow::Result;
 use std::fs::File;
 use tar::Builder;
 use zstd::Encoder;
 
-/// 零落地流式归档打包器 (TAR.ZSTD)
+/// Zero-copy in-memory streaming archive packer (TAR.ZSTD).
 pub struct StreamingArchivePacker {
     tar_builder: Builder<Encoder<'static, File>>,
 }
@@ -22,7 +24,7 @@ impl StreamingArchivePacker {
         Ok(Self { tar_builder })
     }
 
-    /// 向归档中追加单个文件切片数据 (零磁盘中间落地)
+    /// Appends single file slice data into archive without disk intermediate storage.
     pub fn append_file_data(&mut self, virtual_path: &str, data: &[u8]) -> Result<()> {
         let mut header = tar::Header::new_gnu();
         header.set_size(data.len() as u64);
@@ -33,10 +35,11 @@ impl StreamingArchivePacker {
         Ok(())
     }
 
-    /// 完成归档并刷新所有缓冲区
+    /// Finishes archive packing and flushes underlying buffers.
     pub fn finish(self) -> Result<()> {
         let zstd_encoder = self.tar_builder.into_inner()?;
         zstd_encoder.finish()?;
         Ok(())
     }
 }
+

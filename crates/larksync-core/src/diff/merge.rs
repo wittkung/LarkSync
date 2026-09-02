@@ -2,23 +2,25 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 use crate::model::DocxBlock;
 use std::collections::HashMap;
 
-/// 3-Way AST 块级语义合并结果
+/// 3-Way AST block-level semantic merge result.
 #[derive(Debug, PartialEq)]
 pub enum MergeResult {
-    /// 自动合并成功
+    /// Automatic clean merge without conflicts.
     Clean(Vec<DocxBlock>),
-    /// 存在无法调和的并发冲突
+    /// Concurrent conflicts present.
     Conflict {
         merged_blocks: Vec<DocxBlock>,
         conflict_block_ids: Vec<String>,
     },
 }
 
-/// 3-Way Block AST 合并引擎
+/// 3-Way Block AST merge engine.
 pub struct Ast3WayMergeEngine;
 
 impl Ast3WayMergeEngine {
@@ -34,13 +36,17 @@ impl Ast3WayMergeEngine {
         let mut merged_blocks = Vec::new();
         let mut conflict_block_ids = Vec::new();
 
-        // 收集所有涉及的 block_id
+        // Collect all involved block IDs
         let mut all_ids: Vec<String> = Vec::new();
         for b in local_blocks {
-            if !all_ids.contains(&b.block_id) { all_ids.push(b.block_id.clone()); }
+            if !all_ids.contains(&b.block_id) {
+                all_ids.push(b.block_id.clone());
+            }
         }
         for b in remote_blocks {
-            if !all_ids.contains(&b.block_id) { all_ids.push(b.block_id.clone()); }
+            if !all_ids.contains(&b.block_id) {
+                all_ids.push(b.block_id.clone());
+            }
         }
 
         for id in all_ids {
@@ -49,39 +55,39 @@ impl Ast3WayMergeEngine {
             let remote = remote_map.get(&id).copied();
 
             match (base, local, remote) {
-                // 1. 只有本地新增
+                // 1. Added locally only
                 (None, Some(l), None) => {
                     merged_blocks.push(l.clone());
                 }
-                // 2. 只有远端新增
+                // 2. Added on remote only
                 (None, None, Some(r)) => {
                     merged_blocks.push(r.clone());
                 }
-                // 3. 两端均新增
+                // 3. Added on both sides
                 (None, Some(l), Some(r)) => {
                     if l == r {
                         merged_blocks.push(l.clone());
                     } else {
                         conflict_block_ids.push(id);
-                        merged_blocks.push(l.clone()); // 暂留本地版本
+                        merged_blocks.push(l.clone());
                     }
                 }
-                // 4. 三端均存在
+                // 4. Exists across all three states
                 (Some(b), Some(l), Some(r)) => {
                     let local_changed = l != b;
                     let remote_changed = r != b;
 
                     if local_changed && !remote_changed {
-                        // 仅本地修改
+                        // Modified locally only
                         merged_blocks.push(l.clone());
                     } else if !local_changed && remote_changed {
-                        // 仅远端修改
+                        // Modified on remote only
                         merged_blocks.push(r.clone());
                     } else if !local_changed && !remote_changed {
-                        // 两端均未修改
+                        // Unmodified on both sides
                         merged_blocks.push(b.clone());
                     } else {
-                        // 两端均有修改
+                        // Modified on both sides
                         if l == r {
                             merged_blocks.push(l.clone());
                         } else {
@@ -90,15 +96,15 @@ impl Ast3WayMergeEngine {
                         }
                     }
                 }
-                // 5. 本地删除，远端未变
+                // 5. Deleted locally, unchanged on remote
                 (Some(b), None, Some(r)) if b == r => {
-                    // 保留删除
+                    // Keep deletion
                 }
-                // 6. 远端删除，本地未变
+                // 6. Deleted on remote, unchanged locally
                 (Some(b), Some(l), None) if b == l => {
-                    // 保留删除
+                    // Keep deletion
                 }
-                // 7. 一端删除，另一端修改
+                // 7. Deleted on one side, modified on another
                 (Some(_), Some(l), None) => {
                     conflict_block_ids.push(id);
                     merged_blocks.push(l.clone());
@@ -121,3 +127,4 @@ impl Ast3WayMergeEngine {
         }
     }
 }
+

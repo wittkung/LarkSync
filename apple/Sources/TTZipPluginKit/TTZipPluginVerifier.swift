@@ -2,11 +2,13 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 import CryptoKit
 
-/// 插件数字签名与 SHA-256 完整性校验器 (Ed25519 & Safe Hash)
+/// Digital signature and SHA-256 integrity verifier (Ed25519 & Safe Hash).
 public enum TTZipPluginVerifier {
     public enum VerificationError: Error, Sendable {
         case fileNotFound
@@ -15,7 +17,7 @@ public enum TTZipPluginVerifier {
         case invalidPublicKeyData
     }
     
-    /// 校验文件 SHA-256 摘要
+    /// Verifies file SHA-256 digest against expected hex.
     public static func verifySHA256(fileURL: URL, expectedHex: String) throws {
         guard let data = try? Data(contentsOf: fileURL) else {
             throw VerificationError.fileNotFound
@@ -27,7 +29,7 @@ public enum TTZipPluginVerifier {
         }
     }
     
-    /// 校验 Ed25519 数字签名
+    /// Verifies Ed25519 digital signature against data buffer.
     public static func verifyEd25519Signature(
         data: Data,
         signatureData: Data,

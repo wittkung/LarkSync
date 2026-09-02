@@ -1,6 +1,9 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 //
-// TTZipPluginInstallerTests: End-to-end integration tests for plugin installer and registry.
+// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
+// All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 import Testing
 import Foundation
@@ -39,27 +42,56 @@ struct TTZipPluginInstallerTests {
     @MainActor
     func testAtomicInstallPipeline() async throws {
         let fallback = TTZipMarketplaceService.fallbackPlugin
-        let zipURL = URL(fileURLWithPath: "/Users/kevintung/Documents/dev/studio-lab/larksync/dist/LarkSync-v\(fallback.version).ttplugin.zip")
-        guard FileManager.default.fileExists(atPath: zipURL.path) else {
-            return // 若本地未打包则跳过
+        let currentDir = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let distURL = currentDir.appendingPathComponent("dist/LarkSync-v\(fallback.version).ttplugin.zip")
+        let parentDistURL = currentDir.deletingLastPathComponent().appendingPathComponent("dist/LarkSync-v\(fallback.version).ttplugin.zip")
+        
+        let targetURL: URL?
+        if FileManager.default.fileExists(atPath: distURL.path) {
+            targetURL = distURL
+        } else if FileManager.default.fileExists(atPath: parentDistURL.path) {
+            targetURL = parentDistURL
+        } else {
+            targetURL = nil
+        }
+        
+        guard let zipURL = targetURL else {
+            return // Skip if distribution package is not built yet
         }
         
         let installer = TTZipPluginInstaller.shared
         let mockContext = MockHostContext()
         
-        // 1. 执行端到端完整原子安装 (包含 SHA256 校验、Ed25519 验签、解压与 APFS 替换)
-        try await installer.install(plugin: fallback, context: mockContext)
+        // 1. Execute end-to-end atomic installation
+        let pluginToInstall = TTZipMarketplacePlugin(
+            id: fallback.id,
+            name: fallback.name,
+            displayName: fallback.displayName,
+            version: fallback.version,
+            author: fallback.author,
+            description: fallback.description,
+            minHostVersion: fallback.minHostVersion,
+            homepage: fallback.homepage,
+            downloadUrl: zipURL.absoluteString,
+            size: fallback.size,
+            sha256: fallback.sha256,
+            signature: fallback.signature,
+            publicKey: fallback.publicKey,
+            permissions: fallback.permissions,
+            publishedAt: fallback.publishedAt
+        )
+        try await installer.install(plugin: pluginToInstall, context: mockContext)
         
-        // 2. 验证 Registry 已挂载
+        // 2. Verify Registry mounting
         let installed = TTZipPluginRegistry.shared.installedPlugins
         #expect(!installed.isEmpty)
         #expect(installed.contains(where: { $0.manifest.id == fallback.id }))
         
-        // 3. 验证侧边栏项已动态挂载
+        // 3. Verify sidebar contribution dynamic mounting
         let sidebarItems = TTZipPluginRegistry.shared.sidebarItems
         #expect(sidebarItems.contains(where: { $0.id == "larksync.sidebar" }))
         
-        // 4. 验证反注册与卸载 (包括 Registry 与 侧边栏贡献项全部同步移除)
+        // 4. Verify unregistration and cleanup
         await TTZipPluginRegistry.shared.unregister(pluginId: fallback.id)
         #expect(!TTZipPluginRegistry.shared.installedPlugins.contains(where: { $0.manifest.id == fallback.id }))
         #expect(!TTZipPluginRegistry.shared.sidebarItems.contains(where: { $0.id == "larksync.sidebar" }))

@@ -1,6 +1,9 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 //
-// TTZipPluginKit: Marketplace V1 Specification Models.
+// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
+// All rights reserved.
+//
+// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 
@@ -68,13 +71,13 @@ public struct TTZipMarketplacePlugin: Codable, Sendable, Identifiable {
     }
 }
 
-/// 官方市场服务与索引拉取器
+/// Official marketplace service and index fetcher.
 public actor TTZipMarketplaceService {
     public static let shared = TTZipMarketplaceService()
     
     public static let defaultMarketplaceURL = URL(string: "https://raw.githubusercontent.com/wittkung/LarkSync/main/marketplace.json")!
     
-    /// 内置官方 Fallback 索引，确保即使离线/弱网环境下也能瞬时呈现官方生态
+    /// Built-in fallback plugin index to ensure offline/weak-network availability.
     public static let fallbackPlugin = TTZipMarketplacePlugin(
         id: "com.ttzip.plugin.larksync",
         name: "LarkSync",
@@ -95,7 +98,7 @@ public actor TTZipMarketplaceService {
     
     private init() {}
     
-    /// 拉取云端最新索引（带超时与 Fallback 保护）
+    /// Fetches remote marketplace index with timeout and fallback protection.
     public func fetchMarketplaceIndex(from url: URL = defaultMarketplaceURL) async -> [TTZipMarketplacePlugin] {
         var request = URLRequest(url: url)
         request.timeoutInterval = 5.0
