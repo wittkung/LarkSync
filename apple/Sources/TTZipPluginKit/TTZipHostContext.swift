@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
@@ -12,6 +12,14 @@ import SwiftUI
 public enum TTZipNotificationLevel: String, Sendable {
     case info
     case success
+    case warning
+    case error
+}
+
+/// Plugin log severity level
+public enum TTZipPluginLogLevel: String, Sendable, CaseIterable {
+    case debug
+    case info
     case warning
     case error
 }
@@ -31,15 +39,49 @@ public protocol TTZipKeychainStore: Sendable {
     func delete(key: String) async throws
 }
 
+/// Archive entry metadata model exposed to plugins
+public struct TTZipArchiveEntry: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { path }
+    public let path: String
+    public let uncompressedSize: UInt64
+    public let compressedSize: UInt64?
+    public let isDirectory: Bool
+    public let modificationDate: Date?
+    public let isEncrypted: Bool
+    public let compressionMethod: String
+    
+    public init(
+        path: String,
+        uncompressedSize: UInt64,
+        compressedSize: UInt64? = nil,
+        isDirectory: Bool = false,
+        modificationDate: Date? = nil,
+        isEncrypted: Bool = false,
+        compressionMethod: String = "deflate"
+    ) {
+        self.path = path
+        self.uncompressedSize = uncompressedSize
+        self.compressedSize = compressedSize
+        self.isDirectory = isDirectory
+        self.modificationDate = modificationDate
+        self.isEncrypted = isEncrypted
+        self.compressionMethod = compressionMethod
+    }
+}
+
 /// Host capability context protocol injected into TTZip plugins
 @MainActor
 public protocol TTZipHostContext: AnyObject {
     var pluginIdentifier: String { get }
     var keychain: TTZipKeychainStore { get }
+    var storageDirectory: URL { get }
     
     func createArchive(sources: [URL], destination: URL, format: String, level: Int) async throws -> URL
+    func inspectArchive(at url: URL, password: String?) async throws -> [TTZipArchiveEntry]
+    func extractArchive(from url: URL, to destination: URL, password: String?, entries: [String]?) async throws
     func showNotification(title: String, message: String, level: TTZipNotificationLevel)
     func setGlobalProgress(progress: Double?, statusText: String?)
+    func log(level: TTZipPluginLogLevel, message: String)
     
     // Strongly typed publish-subscribe event bus
     func subscribeEvent<T: Sendable & Codable>(_ type: T.Type, name: String, handler: @escaping @Sendable (T) -> Void) -> SubscriptionToken
@@ -66,8 +108,24 @@ public final class PluginScopedHostContext: TTZipHostContext {
         ScopedKeychainStore(pluginPrefix: "com.ttzip.plugin.\(pluginIdentifier).", underlyingStore: masterKeychain)
     }
     
+    /// Dedicated managed storage directory: ~/Library/Application Support/TTZip/PluginData/<pluginId>
+    public var storageDirectory: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("TTZip/PluginData/\(pluginIdentifier)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+    
     public func createArchive(sources: [URL], destination: URL, format: String, level: Int) async throws -> URL {
         try await baseContext.createArchive(sources: sources, destination: destination, format: format, level: level)
+    }
+    
+    public func inspectArchive(at url: URL, password: String?) async throws -> [TTZipArchiveEntry] {
+        try await baseContext.inspectArchive(at: url, password: password)
+    }
+    
+    public func extractArchive(from url: URL, to destination: URL, password: String?, entries: [String]?) async throws {
+        try await baseContext.extractArchive(from: url, to: destination, password: password, entries: entries)
     }
     
     public func showNotification(title: String, message: String, level: TTZipNotificationLevel) {
@@ -76,6 +134,10 @@ public final class PluginScopedHostContext: TTZipHostContext {
     
     public func setGlobalProgress(progress: Double?, statusText: String?) {
         baseContext.setGlobalProgress(progress: progress, statusText: statusText)
+    }
+    
+    public func log(level: TTZipPluginLogLevel, message: String) {
+        baseContext.log(level: level, message: "[Plugin:\(pluginIdentifier)] \(message)")
     }
     
     /// Enforces tenant namespace prefix on event names (e.g., `plugin.<pluginId>.<eventName>`) to prevent event collision
@@ -114,7 +176,7 @@ public final class PluginScopedHostContext: TTZipHostContext {
 }
 
 /// Tenant namespace isolated Keychain proxy store
-public final class ScopedKeychainStore: TTZipKeychainStore, @unchecked Sendable {
+public final class ScopedKeychainStore: TTZipKeychainStore, Sendable {
     private let pluginPrefix: String
     private let underlyingStore: TTZipKeychainStore
     
@@ -136,9 +198,9 @@ public final class ScopedKeychainStore: TTZipKeychainStore, @unchecked Sendable 
     }
 }
 
-/// Native macOS Keychain storage implementation (Security.framework)
-public final class SystemKeychainStore: TTZipKeychainStore, @unchecked Sendable {
-    public static let shared = SystemKeychainStore()
+/// Native macOS Keychain storage implementation (Internal to framework)
+final class SystemKeychainStore: TTZipKeychainStore, Sendable {
+    static let shared = SystemKeychainStore()
     private let service = "com.metastudyline.ttzip.plugins"
     
     public init() {}
