@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
+#
+# Copyright (c) 2026 MetastudyLine Inc. <contact@metastudyline.com>
+# All rights reserved.
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["Cargo.toml"])
+
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_static_library")
+
+rust_library(
+    name = "larksync_ffi",
+    srcs = glob(["src/**/*.rs"], exclude = ["src/bin/**"]),
+    crate_name = "larksync_ffi",
+    compile_data = ["Cargo.toml"],
+    edition = "2021",
+    deps = [
+        "//studio-lab/larksync/crates/larksync-core:larksync_core",
+        "@crates_larksync//:anyhow",
+        "@crates_larksync//:serde",
+        "@crates_larksync//:serde_json",
+        "@crates_larksync//:thiserror",
+        "@crates_larksync//:tokio",
+        "@crates_larksync//:uniffi",
+    ],
+)
+
+rust_static_library(
+    name = "larksync_ffi_static",
+    srcs = glob(["src/**/*.rs"], exclude = ["src/bin/**"]),
+    crate_name = "larksync_ffi",
+    compile_data = ["Cargo.toml"],
+    edition = "2021",
+    deps = [
+        "//studio-lab/larksync/crates/larksync-core:larksync_core",
+        "@crates_larksync//:anyhow",
+        "@crates_larksync//:serde",
+        "@crates_larksync//:serde_json",
+        "@crates_larksync//:thiserror",
+        "@crates_larksync//:tokio",
+        "@crates_larksync//:uniffi",
+    ],
+)
+

@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
+#
+# Copyright (c) 2026 MetastudyLine Inc. <contact@metastudyline.com>
+# All rights reserved.
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["Cargo.toml"])
+
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+
+rust_library(
+    name = "larksync_core",
+    srcs = glob(["src/**/*.rs"]),
+    edition = "2021",
+    deps = [
+        "@crates_larksync//:anyhow",
+        "@crates_larksync//:blake3",
+        "@crates_larksync//:governor",
+        "@crates_larksync//:nonzero_ext",
+        "@crates_larksync//:pulldown-cmark",
+        "@crates_larksync//:reqwest",
+        "@crates_larksync//:rusqlite",
+        "@crates_larksync//:serde",
+        "@crates_larksync//:serde_json",
+        "@crates_larksync//:similar",
+        "@crates_larksync//:slotmap",
+        "@crates_larksync//:tar",
+        "@crates_larksync//:thiserror",
+        "@crates_larksync//:tokio",
+        "@crates_larksync//:tracing",
+        "@crates_larksync//:zstd",
+    ],
+)
+
+rust_test(
+    name = "larksync_core_test",
+    crate = ":larksync_core",
+)
+

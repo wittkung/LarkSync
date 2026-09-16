@@ -1,9 +1,6 @@
-// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
+// SPDX-License-Identifier: MIT
 //
-// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
-// All rights reserved.
-//
-// TTZip: High-performance native archiving and compression engine.
+// TTMarkdownKit: High-Fidelity Multi-format Export Pipeline (PDF / Long Image / HTML).
 
 import Foundation
 import WebKit
@@ -48,14 +45,14 @@ public final class WebKitExportRenderer: NSObject, WKNavigationDelegate {
         loadContinuation = nil
     }
     
-    /// Exports HTML document as PDF binary data.
+    /// 导出为高保真 PDF 二进制数据
     public func exportPDF() async throws -> Data {
         guard let webView = self.webView else { throw CocoaError(.coderInvalidValue) }
         let pdfConfiguration = WKPDFConfiguration()
         return try await webView.pdf(configuration: pdfConfiguration)
     }
     
-    /// Exports HTML document as full-length snapshot image (Retina 2x).
+    /// 导出为 Retina 2x 高清完整长图 (PNG)
     public func exportFullLengthImage(scale: CGFloat = 2.0) async throws -> NSImage {
         guard let webView = self.webView else { throw CocoaError(.coderInvalidValue) }
         

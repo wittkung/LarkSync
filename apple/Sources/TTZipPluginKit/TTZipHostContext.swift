@@ -1,14 +1,12 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
-//
-// TTZip: High-performance native archiving and compression engine.
 
 import Foundation
 import SwiftUI
 
-/// Notification priority level
+/// 通知重要级别
 public enum TTZipNotificationLevel: String, Sendable {
     case info
     case success
@@ -16,15 +14,7 @@ public enum TTZipNotificationLevel: String, Sendable {
     case error
 }
 
-/// Plugin log severity level
-public enum TTZipPluginLogLevel: String, Sendable, CaseIterable {
-    case debug
-    case info
-    case warning
-    case error
-}
-
-/// Strongly typed subscription token for event bus lifecycle management
+/// 强类型安全事件订阅令牌 (防内存泄漏)
 public struct SubscriptionToken: Sendable, Hashable {
     public let id: UUID
     public init() {
@@ -32,70 +22,35 @@ public struct SubscriptionToken: Sendable, Hashable {
     }
 }
 
-/// Keychain store capability interface
+/// 凭证保险箱能力接口
 public protocol TTZipKeychainStore: Sendable {
     func get(key: String) async throws -> String?
     func set(key: String, value: String) async throws
     func delete(key: String) async throws
 }
 
-/// Archive entry metadata model exposed to plugins
-public struct TTZipArchiveEntry: Codable, Sendable, Hashable, Identifiable {
-    public var id: String { path }
-    public let path: String
-    public let uncompressedSize: UInt64
-    public let compressedSize: UInt64?
-    public let isDirectory: Bool
-    public let modificationDate: Date?
-    public let isEncrypted: Bool
-    public let compressionMethod: String
-    
-    public init(
-        path: String,
-        uncompressedSize: UInt64,
-        compressedSize: UInt64? = nil,
-        isDirectory: Bool = false,
-        modificationDate: Date? = nil,
-        isEncrypted: Bool = false,
-        compressionMethod: String = "deflate"
-    ) {
-        self.path = path
-        self.uncompressedSize = uncompressedSize
-        self.compressedSize = compressedSize
-        self.isDirectory = isDirectory
-        self.modificationDate = modificationDate
-        self.isEncrypted = isEncrypted
-        self.compressionMethod = compressionMethod
-    }
-}
-
-/// Host capability context protocol injected into TTZip plugins
+/// TTZip 宿主向插件注入的核心能力上下文协议
 @MainActor
 public protocol TTZipHostContext: AnyObject {
     var pluginIdentifier: String { get }
     var keychain: TTZipKeychainStore { get }
-    var storageDirectory: URL { get }
     
     func createArchive(sources: [URL], destination: URL, format: String, level: Int) async throws -> URL
-    func inspectArchive(at url: URL, password: String?) async throws -> [TTZipArchiveEntry]
-    func extractArchive(from url: URL, to destination: URL, password: String?, entries: [String]?) async throws
     func showNotification(title: String, message: String, level: TTZipNotificationLevel)
     func setGlobalProgress(progress: Double?, statusText: String?)
-    func log(level: TTZipPluginLogLevel, message: String)
     
-    // Strongly typed publish-subscribe event bus
+    // 强类型发布-订阅事件总线 (支持反注册与内存回收)
     func subscribeEvent<T: Sendable & Codable>(_ type: T.Type, name: String, handler: @escaping @Sendable (T) -> Void) -> SubscriptionToken
     func unsubscribeEvent(token: SubscriptionToken)
     func publishEvent<T: Sendable & Codable>(name: String, event: T)
 }
 
-/// Scoped host context proxy enforcing tenant isolation, event namespacing, and token lifecycle cleanup
+/// 带有租户隔离保护的 Scoped Host Context 代理实现
 @MainActor
 public final class PluginScopedHostContext: TTZipHostContext {
     public let pluginIdentifier: String
     private let masterKeychain: TTZipKeychainStore
     private let baseContext: TTZipHostContext
-    private var registeredTokens: Set<SubscriptionToken> = []
     
     public init(pluginIdentifier: String, baseContext: TTZipHostContext, masterKeychain: TTZipKeychainStore) {
         self.pluginIdentifier = pluginIdentifier
@@ -103,29 +58,13 @@ public final class PluginScopedHostContext: TTZipHostContext {
         self.masterKeychain = masterKeychain
     }
     
-    /// Tenant-scoped keychain store preventing cross-plugin access
+    /// 强制增加租户命名空间前缀，彻底阻断跨插件越权访问
     public var keychain: TTZipKeychainStore {
         ScopedKeychainStore(pluginPrefix: "com.ttzip.plugin.\(pluginIdentifier).", underlyingStore: masterKeychain)
     }
     
-    /// Dedicated managed storage directory: ~/Library/Application Support/TTZip/PluginData/<pluginId>
-    public var storageDirectory: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = appSupport.appendingPathComponent("TTZip/PluginData/\(pluginIdentifier)", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
-    }
-    
     public func createArchive(sources: [URL], destination: URL, format: String, level: Int) async throws -> URL {
         try await baseContext.createArchive(sources: sources, destination: destination, format: format, level: level)
-    }
-    
-    public func inspectArchive(at url: URL, password: String?) async throws -> [TTZipArchiveEntry] {
-        try await baseContext.inspectArchive(at: url, password: password)
-    }
-    
-    public func extractArchive(from url: URL, to destination: URL, password: String?, entries: [String]?) async throws {
-        try await baseContext.extractArchive(from: url, to: destination, password: password, entries: entries)
     }
     
     public func showNotification(title: String, message: String, level: TTZipNotificationLevel) {
@@ -136,47 +75,21 @@ public final class PluginScopedHostContext: TTZipHostContext {
         baseContext.setGlobalProgress(progress: progress, statusText: statusText)
     }
     
-    public func log(level: TTZipPluginLogLevel, message: String) {
-        baseContext.log(level: level, message: "[Plugin:\(pluginIdentifier)] \(message)")
-    }
-    
-    /// Enforces tenant namespace prefix on event names (e.g., `plugin.<pluginId>.<eventName>`) to prevent event collision
-    private func scopedEventName(_ name: String) -> String {
-        let prefix = "plugin.\(pluginIdentifier)."
-        if name.hasPrefix(prefix) {
-            return name
-        }
-        return "\(prefix)\(name)"
-    }
-    
     public func subscribeEvent<T: Sendable & Codable>(_ type: T.Type, name: String, handler: @escaping @Sendable (T) -> Void) -> SubscriptionToken {
-        let scopedName = scopedEventName(name)
-        let token = baseContext.subscribeEvent(type, name: scopedName, handler: handler)
-        registeredTokens.insert(token)
-        return token
+        baseContext.subscribeEvent(type, name: name, handler: handler)
     }
     
     public func unsubscribeEvent(token: SubscriptionToken) {
-        registeredTokens.remove(token)
         baseContext.unsubscribeEvent(token: token)
     }
     
     public func publishEvent<T: Sendable & Codable>(name: String, event: T) {
-        let scopedName = scopedEventName(name)
-        baseContext.publishEvent(name: scopedName, event: event)
-    }
-    
-    /// Cleans up and unregisters all event subscription tokens created by this scoped context
-    public func cleanupTokens() {
-        for token in registeredTokens {
-            baseContext.unsubscribeEvent(token: token)
-        }
-        registeredTokens.removeAll()
+        baseContext.publishEvent(name: name, event: event)
     }
 }
 
-/// Tenant namespace isolated Keychain proxy store
-public final class ScopedKeychainStore: TTZipKeychainStore, Sendable {
+/// 租户命名空间隔离的 Keychain 代理
+public final class ScopedKeychainStore: TTZipKeychainStore, @unchecked Sendable {
     private let pluginPrefix: String
     private let underlyingStore: TTZipKeychainStore
     
@@ -198,9 +111,9 @@ public final class ScopedKeychainStore: TTZipKeychainStore, Sendable {
     }
 }
 
-/// Native macOS Keychain storage implementation (Internal to framework)
-final class SystemKeychainStore: TTZipKeychainStore, Sendable {
-    static let shared = SystemKeychainStore()
+/// 原生 macOS Keychain 存储实现 (基于 Security.framework)
+public final class SystemKeychainStore: TTZipKeychainStore, @unchecked Sendable {
+    public static let shared = SystemKeychainStore()
     private let service = "com.metastudyline.ttzip.plugins"
     
     public init() {}
@@ -240,3 +153,4 @@ final class SystemKeychainStore: TTZipKeychainStore, Sendable {
         SecItemDelete(query as CFDictionary)
     }
 }
+

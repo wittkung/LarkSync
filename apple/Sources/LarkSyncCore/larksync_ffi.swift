@@ -478,27 +478,27 @@ private struct FfiConverterString: FfiConverter {
 
 public protocol LarkSyncEngineProtocol: AnyObject {
     /**
-     * Zero-copy streaming export to TTZip archive (with optional subtree root node token).
+     * 零落地流式导出为 TTZip（支持可选的指定子树根节点 Token）
      */
     func exportToTtzip(spaceId: String, rootNodeToken: String?, outputPath: String, cb: SyncProgressCallback) async throws
 
     /**
-     * Asynchronously fetches all Wiki spaces.
+     * 异步拉取所有知识库空间
      */
     func fetchSpaces() async throws -> [WikiSpaceItem]
 
     /**
-     * Asynchronously fetches Wiki tree nodes for a space.
+     * 异步拉取知识库树
      */
     func fetchWikiTree(spaceId: String) async throws -> [WikiNodeItem]
 
     /**
-     * Converts Markdown text into DocX Block JSON.
+     * 将 Markdown 文本转换为 DocX Block JSON
      */
     func markdownToBlocksJson(markdown: String) throws -> String
 
     /**
-     * Executes end-to-end incremental sync pull (with optional subtree root node token).
+     * 执行端到端增量同步拉取（支持可选的指定子树根节点 Token）
      */
     func syncPull(spaceId: String, rootNodeToken: String?, targetDir: String, cb: SyncProgressCallback) async throws -> UInt32
 }
@@ -562,7 +562,7 @@ open class LarkSyncEngine:
     }
 
     /**
-     * Zero-copy streaming export to TTZip archive (with optional subtree root node token).
+     * 零落地流式导出为 TTZip（支持可选的指定子树根节点 Token）
      */
     open func exportToTtzip(spaceId: String, rootNodeToken: String?, outputPath: String, cb: SyncProgressCallback) async throws {
         return
@@ -582,7 +582,7 @@ open class LarkSyncEngine:
     }
 
     /**
-     * Asynchronously fetches all Wiki spaces.
+     * 异步拉取所有知识库空间
      */
     open func fetchSpaces() async throws -> [WikiSpaceItem] {
         return
@@ -601,7 +601,7 @@ open class LarkSyncEngine:
     }
 
     /**
-     * Asynchronously fetches Wiki tree nodes for a space.
+     * 异步拉取知识库树
      */
     open func fetchWikiTree(spaceId: String) async throws -> [WikiNodeItem] {
         return
@@ -621,7 +621,7 @@ open class LarkSyncEngine:
     }
 
     /**
-     * Converts Markdown text into DocX Block JSON.
+     * 将 Markdown 文本转换为 DocX Block JSON
      */
     open func markdownToBlocksJson(markdown: String) throws -> String {
         return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeLarkFfiError.lift) {
@@ -631,7 +631,7 @@ open class LarkSyncEngine:
     }
 
     /**
-     * Executes end-to-end incremental sync pull (with optional subtree root node token).
+     * 执行端到端增量同步拉取（支持可选的指定子树根节点 Token）
      */
     open func syncPull(spaceId: String, rootNodeToken: String?, targetDir: String, cb: SyncProgressCallback) async throws -> UInt32 {
         return
@@ -1329,19 +1329,19 @@ nonisolated(unsafe) private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if uniffi_larksync_ffi_checksum_method_larksyncengine_export_to_ttzip() != 47580 {
+    if uniffi_larksync_ffi_checksum_method_larksyncengine_export_to_ttzip() != 17000 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_larksync_ffi_checksum_method_larksyncengine_fetch_spaces() != 64105 {
+    if uniffi_larksync_ffi_checksum_method_larksyncengine_fetch_spaces() != 15109 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_larksync_ffi_checksum_method_larksyncengine_fetch_wiki_tree() != 21009 {
+    if uniffi_larksync_ffi_checksum_method_larksyncengine_fetch_wiki_tree() != 2622 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_larksync_ffi_checksum_method_larksyncengine_markdown_to_blocks_json() != 3935 {
+    if uniffi_larksync_ffi_checksum_method_larksyncengine_markdown_to_blocks_json() != 45346 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_larksync_ffi_checksum_method_larksyncengine_sync_pull() != 36290 {
+    if uniffi_larksync_ffi_checksum_method_larksyncengine_sync_pull() != 4284 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_larksync_ffi_checksum_constructor_larksyncengine_new() != 11362 {

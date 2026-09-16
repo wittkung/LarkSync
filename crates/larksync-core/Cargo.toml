@@ -7,18 +7,22 @@ license.workspace = true
 description = "Pure Rust core engine for Feishu/Lark Wiki knowledge base sync & DocX AST bidirectional transformation"
 
 [dependencies]
-tokio = { version = "1.40", features = ["rt", "rt-multi-thread", "sync", "time", "macros"] }
+tokio = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
+governor = { workspace = true }
+nonzero_ext = { workspace = true }
 pulldown-cmark = { workspace = true }
+similar = { workspace = true }
 rusqlite = { workspace = true }
 zstd = { workspace = true }
 tar = { workspace = true }
+slotmap = { workspace = true }
 blake3 = { workspace = true }
-zeroize = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.12"

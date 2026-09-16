@@ -2,8 +2,6 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
-//
-// TTZip: High-performance native archiving and compression engine.
 
 use anyhow::Result;
 use rusqlite::{params, Connection};
@@ -11,7 +9,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use crate::model::{WikiNode, NodeType, DocxBlock};
 
-/// SQLite WAL local state and shadow AST block mapping repository.
+/// SQLite WAL 本地状态与 Shadow AST 块映射仓储
 pub struct LocalMetadataStore {
     conn: Arc<Mutex<Connection>>,
 }
@@ -75,7 +73,7 @@ impl LocalMetadataStore {
         Ok(())
     }
 
-    /// Inserts or updates node metadata.
+    /// 更新或插入节点元数据
     pub fn upsert_node(&self, node: &WikiNode, local_path: Option<&str>) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         let node_type_int = match node.node_type {
@@ -116,7 +114,7 @@ impl LocalMetadataStore {
         Ok(())
     }
 
-    /// Fetches all synchronized nodes for a given space.
+    /// 获取指定空间已同步的节点全集
     pub fn get_synced_tree(&self, space_id: &str) -> Result<HashMap<String, WikiNode>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
@@ -162,7 +160,7 @@ impl LocalMetadataStore {
         Ok(map)
     }
 
-    /// Persists shadow blocks snapshot for mapping cloud block IDs.
+    /// 持久化 Shadow Blocks 快照（用于精准映射云端 block_id）
     pub fn save_shadow_blocks(&self, node_token: &str, blocks: &[DocxBlock]) -> Result<()> {
         let mut conn = self.conn.lock().unwrap();
         let tx = conn.transaction()?;
@@ -181,7 +179,7 @@ impl LocalMetadataStore {
                     node_token,
                     block.block_id,
                     block.parent_id,
-                    block.block_type as i32,
+                    1, // BlockType id
                     hash.as_bytes(),
                     order as i32
                 ],
@@ -192,4 +190,3 @@ impl LocalMetadataStore {
         Ok(())
     }
 }
-

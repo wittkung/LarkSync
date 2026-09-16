@@ -1,13 +1,10 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 //
-// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
-// All rights reserved.
-//
-// TTZip: High-performance native archiving and compression engine.
+// TTZipPluginKit: Open-source plugin SDK for TTZip / ttsubs ecosystems.
 
 import Foundation
 
-/// Declarative Plugin Manifest
+/// 插件声明清单 (Declarative Plugin Manifest)
 public struct TTZipPluginManifest: Sendable, Codable, Identifiable {
     public let id: String
     public let name: String
@@ -16,7 +13,6 @@ public struct TTZipPluginManifest: Sendable, Codable, Identifiable {
     public let description: String
     public let iconSystemName: String
     public let homepage: URL?
-    public let minHostVersion: String?
     public let permissions: [TTZipPluginPermission]
     
     public init(
@@ -27,7 +23,6 @@ public struct TTZipPluginManifest: Sendable, Codable, Identifiable {
         description: String,
         iconSystemName: String,
         homepage: URL? = nil,
-        minHostVersion: String? = nil,
         permissions: [TTZipPluginPermission] = []
     ) {
         self.id = id
@@ -37,12 +32,11 @@ public struct TTZipPluginManifest: Sendable, Codable, Identifiable {
         self.description = description
         self.iconSystemName = iconSystemName
         self.homepage = homepage
-        self.minHostVersion = minHostVersion
         self.permissions = permissions
     }
 }
 
-/// Object-Capability Security Permissions (OCap Security Model)
+/// 基于能力安全模型的权限声明 (Object-Capability Security Permissions)
 public enum TTZipPluginPermission: String, Sendable, Codable {
     case networkAccess = "permission.network"
     case keychainAccess = "permission.keychain"

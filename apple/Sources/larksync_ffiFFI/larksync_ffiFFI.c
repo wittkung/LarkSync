@@ -3,6 +3,6 @@
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
 //
-// LarkSync: Mozilla UniFFI + Swift 6 native architecture.
+// LarkSync: Mozilla UniFFI C-ABI anchor.
 
-#include "larksync_ffiFFI.h"
+#include "include/larksync_ffiFFI.h"

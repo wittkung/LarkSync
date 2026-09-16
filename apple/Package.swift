@@ -14,19 +14,18 @@ let swiftSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "LarkSync",
-    defaultLocalization: "en",
+    defaultLocalization: "zh-Hans",
     platforms: [
         .macOS(.v14)
     ],
     products: [
+        .library(name: "TTZipPluginKit", targets: ["TTZipPluginKit"]),
         .library(name: "TTMarkdownKit", targets: ["TTMarkdownKit"]),
         .library(name: "LarkSyncCore", targets: ["LarkSyncCore"]),
         .library(name: "LarkSyncUI", targets: ["LarkSyncUI"]),
         .library(name: "LarkSyncPlugin", type: .dynamic, targets: ["LarkSyncPlugin"])
     ],
-    dependencies: [
-        .package(path: "Sources/TTZipPluginKit")
-    ],
+    dependencies: [],
     targets: [
         // 1. Mozilla UniFFI C-ABI Modulemap Target
         .target(
@@ -35,7 +34,7 @@ let package = Package(
             publicHeadersPath: "include"
         ),
 
-        // 2. LarkSyncCore (Mozilla UniFFI generated Swift interface)
+        // 2. LarkSyncCore (Mozilla UniFFI 生成的强类型 Swift 接口)
         .target(
             name: "LarkSyncCore",
             dependencies: ["larksync_ffiFFI"],
@@ -54,10 +53,18 @@ let package = Package(
             ]
         ),
 
-        // 3. WYSIWYG Markdown engine and theme rendering kit
+        // 3. TTZip 官方开源插件 SDK (轻量协议与 8 大扩展点)
+        .target(
+            name: "TTZipPluginKit",
+            path: "Sources/TTZipPluginKit",
+            exclude: ["README.md", "README.zh-CN.md"],
+            swiftSettings: swiftSettings
+        ),
+        
+        // 4. 类 Typora 所见即所得 Markdown 引擎与主题渲染库
         .target(
             name: "TTMarkdownKit",
-            dependencies: [.product(name: "TTZipPluginKit", package: "TTZipPluginKit")],
+            dependencies: ["TTZipPluginKit"],
             path: "Sources/TTMarkdownKit",
             resources: [
                 .process("Resources")
@@ -65,32 +72,26 @@ let package = Package(
             swiftSettings: swiftSettings
         ),
         
-        // 4. LarkSync native UI components (Miller columns / inspector / editor)
+        // 5. LarkSync 飞书知识库原生 UI 组件 (米勒列 / 检查器 / 编辑器)
         .target(
             name: "LarkSyncUI",
-            dependencies: [.product(name: "TTZipPluginKit", package: "TTZipPluginKit"), "TTMarkdownKit", "LarkSyncCore"],
+            dependencies: ["TTZipPluginKit", "TTMarkdownKit", "LarkSyncCore"],
             path: "Sources/LarkSyncUI",
             swiftSettings: swiftSettings
         ),
         
-        // 5. LarkSync plugin dynamic entry
+        // 6. LarkSync 官方标杆插件入口
         .target(
             name: "LarkSyncPlugin",
-            dependencies: [.product(name: "TTZipPluginKit", package: "TTZipPluginKit"), "TTMarkdownKit", "LarkSyncCore", "LarkSyncUI"],
+            dependencies: ["TTZipPluginKit", "TTMarkdownKit", "LarkSyncCore", "LarkSyncUI"],
             path: "Sources/LarkSyncPlugin",
-            swiftSettings: swiftSettings,
-            linkerSettings: [
-                .unsafeFlags([
-                    "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../Frameworks",
-                    "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"
-                ])
-            ]
+            swiftSettings: swiftSettings
         ),
         
-        // 6. Unit test suite
+        // 7. 单元测试套件
         .testTarget(
             name: "TTZipPluginKitTests",
-            dependencies: [.product(name: "TTZipPluginKit", package: "TTZipPluginKit"), "TTMarkdownKit"],
+            dependencies: ["TTZipPluginKit", "TTMarkdownKit"],
             path: "Tests/TTZipPluginKitTests",
             swiftSettings: swiftSettings
         )

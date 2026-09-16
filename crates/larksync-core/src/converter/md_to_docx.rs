@@ -2,16 +2,13 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
-//
-// TTZip: High-performance native archiving and compression engine.
 
 use std::collections::HashMap;
 use pulldown_cmark::{Event, Parser, Tag, TagEnd, HeadingLevel, CodeBlockKind};
 use crate::model::{DocxBlock, BlockType, TextRun, TextStyleMask};
 
-/// Reverse converter from Markdown AST to Feishu / Lark DocX block tree.
+/// Markdown AST ➔ 飞书 DocX 块树逆向转换器
 pub struct MarkdownToDocxConverter;
-
 
 impl MarkdownToDocxConverter {
     pub fn convert(markdown: &str) -> Vec<DocxBlock> {

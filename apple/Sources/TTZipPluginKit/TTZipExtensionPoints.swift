@@ -1,13 +1,10 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 //
-// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
-// All rights reserved.
-//
-// TTZip: High-performance native archiving and compression engine.
+// TTZipPluginKit: The 8 Standard Extension Points for TTZip / ttsubs.
 
 import SwiftUI
 
-// MARK: - 1. Sidebar Contribution
+// MARK: - 1. 侧边栏扩展项 (Sidebar Contribution)
 public struct TTZipSidebarContribution: Sendable, Identifiable {
     public let id: String
     public let title: String
@@ -33,7 +30,7 @@ public struct TTZipSidebarContribution: Sendable, Identifiable {
     }
 }
 
-// MARK: - 4. Preview Provider Protocol
+// MARK: - 4. 预览器扩展协议 (Preview Provider)
 @MainActor
 public protocol TTZipPreviewProvider: AnyObject {
     var supportedExtensions: [String] { get }
@@ -41,10 +38,10 @@ public protocol TTZipPreviewProvider: AnyObject {
     @ViewBuilder func makePreviewView(fileURL: URL) -> AnyView
 }
 
-// MARK: - 5. Archive / VFS Source Provider Protocol
+// MARK: - 5. 虚拟归档数据源扩展协议 (Archive / VFS Source Provider)
 @MainActor
 public protocol TTZipArchiveSourceProvider: AnyObject {
-    var scheme: String { get } // e.g. "lark://", "s3://", "notion://"
+    var scheme: String { get } // 如 "lark://", "s3://", "notion://"
     func listVirtualEntries(uri: URL) async throws -> [TTZipVirtualEntry]
     func exportVirtualArchive(uri: URL, destination: URL, format: String) async throws -> URL
 }
@@ -66,7 +63,7 @@ public struct TTZipVirtualEntry: Sendable, Identifiable {
     }
 }
 
-// MARK: - 6. Global Omnibar Command Action
+// MARK: - 6. 全局 Omnibar 命令扩展
 public struct TTZipCommandAction: Sendable, Identifiable {
     public let id: String
     public let title: String
@@ -83,7 +80,7 @@ public struct TTZipCommandAction: Sendable, Identifiable {
     }
 }
 
-// MARK: - 7. Context Menu Action
+// MARK: - 7. 右键上下文菜单扩展
 public struct TTZipContextMenuAction: Sendable, Identifiable {
     public let id: String
     public let title: String

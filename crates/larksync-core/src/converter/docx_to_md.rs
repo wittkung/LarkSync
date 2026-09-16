@@ -2,13 +2,11 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
-//
-// TTZip: High-performance native archiving and compression engine.
 
-use crate::model::{BlockType, DocxBlock, TextRun};
+use crate::model::{DocxBlock, BlockType, TextRun};
 use std::collections::HashMap;
 
-/// Converts DocX block tree into high-fidelity CommonMark / GFM compliant Markdown.
+/// 将 DocX Block 树转换为符合 CommonMark/GFM 规范的高保真 Markdown 文本
 pub struct DocxToMarkdownConverter {
     block_map: HashMap<String, DocxBlock>,
 }
@@ -24,15 +22,15 @@ impl DocxToMarkdownConverter {
 
     pub fn convert(&self, title: &str) -> String {
         let mut out = format!("# {title}\n\n");
-
-        // Locate PAGE root node
+        
+        // 查找 PAGE 根节点
         let root = self.block_map.values().find(|b| b.block_type == BlockType::Page);
         if let Some(r) = root {
             for child_id in &r.children {
                 self.render_block(child_id, &mut out, 0);
             }
         } else {
-            // Fallback: iterate all non-page blocks
+            // 降级：遍历所有非 Page 块
             for block in self.block_map.values() {
                 if block.block_type != BlockType::Page {
                     self.render_block_content(block, &mut out, 0);
@@ -123,7 +121,7 @@ impl DocxToMarkdownConverter {
                 out.push_str(&format!("{indent}:::\n"));
             }
             _ => {
-                // Render children of unknown blocks to prevent data loss
+                // 渲染未知块的子节点以防数据丢失
                 for child_id in &block.children {
                     self.render_block(child_id, out, depth + 1);
                 }
@@ -131,7 +129,7 @@ impl DocxToMarkdownConverter {
         }
     }
 
-    /// Renders GFM compatible markdown table.
+    /// 渲染 GFM 兼容表格
     fn render_table(&self, table_block: &DocxBlock, out: &mut String, _depth: usize) {
         let row_size = table_block.properties.get("row_size").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
         let col_size = table_block.properties.get("column_size").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
@@ -140,7 +138,7 @@ impl DocxToMarkdownConverter {
             return;
         }
 
-        // Collect cell text contents
+        // 收集所有单元格的文本内容
         let mut cell_matrix: Vec<Vec<String>> = vec![vec![String::new(); col_size]; row_size];
         for (i, cell_id) in table_block.children.iter().enumerate() {
             let r = i / col_size;
@@ -148,7 +146,7 @@ impl DocxToMarkdownConverter {
             if r < row_size && c < col_size {
                 if let Some(cell) = self.block_map.get(cell_id) {
                     let mut cell_text = self.render_text_runs(&cell.text_runs);
-                    // Recursively render child blocks in cell
+                    // 递归渲染单元格内的子块
                     for child_id in &cell.children {
                         let mut sub = String::new();
                         self.render_block(child_id, &mut sub, 0);
@@ -159,7 +157,7 @@ impl DocxToMarkdownConverter {
             }
         }
 
-        // Output GFM table rows
+        // 输出 GFM 表格
         for (r_idx, row) in cell_matrix.iter().enumerate() {
             out.push('|');
             for cell in row {
@@ -205,4 +203,3 @@ impl DocxToMarkdownConverter {
         res
     }
 }
-

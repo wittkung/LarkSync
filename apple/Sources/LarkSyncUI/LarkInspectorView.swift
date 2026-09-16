@@ -1,9 +1,6 @@
-// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
+// SPDX-License-Identifier: MIT
 //
-// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
-// All rights reserved.
-//
-// TTZip: High-performance native archiving and compression engine.
+// LarkSyncUI: Pro Inspector View for Document Metadata and Diff status.
 
 import SwiftUI
 import TTZipPluginKit
@@ -14,7 +11,7 @@ public struct LarkInspectorView: View {
     public let revision: Int
     public let localPath: String
     
-    public init(docTitle: String = "01-Architecture-Overview.md", revision: Int = 42, localPath: String = "wiki/01-Architecture-Overview.md") {
+    public init(docTitle: String = "01-系统全景架构.md", revision: Int = 42, localPath: String = "wiki/01-系统全景架构.md") {
         self.docTitle = docTitle
         self.revision = revision
         self.localPath = localPath
@@ -32,7 +29,7 @@ public struct LarkInspectorView: View {
                     .font(TTZipTheme.Typography.title)
                 
                 HStack {
-                    Text("Revision:")
+                    Text("修订代数:")
                         .font(TTZipTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                     Text("r\(revision)")
@@ -41,7 +38,7 @@ public struct LarkInspectorView: View {
                 }
                 
                 HStack {
-                    Text("Local Path:")
+                    Text("本地映射:")
                         .font(TTZipTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                     Text(localPath)

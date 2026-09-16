@@ -2,8 +2,6 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
-//
-// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import TTZipPluginKit
@@ -16,12 +14,11 @@ public final class LarkSyncPlugin: NSObject, TTZipPlugin {
     public let manifest = TTZipPluginManifest(
         id: "com.ttzip.plugin.larksync",
         name: "飞书知识库同步",
-        version: "1.0.2",
+        version: "1.0.0",
         author: "Witt Kung",
         description: "双向增量同步飞书知识库，支持 DocX 高保真 Markdown 互转、类 Typora 所见即所得编辑与一键 zstd 归档备份",
         iconSystemName: "cloud.fill",
-        homepage: URL(string: "https://github.com/wittkung/LarkSync"),
-        minHostVersion: "1.0.0",
+        homepage: URL(string: "https://github.com/KevinTungs/LarkSync"),
         permissions: [.networkAccess, .keychainAccess, .fileSystemWrite, .archiveEngine]
     )
     
@@ -34,17 +31,12 @@ public final class LarkSyncPlugin: NSObject, TTZipPlugin {
     
     public func onInitialize(context: TTZipHostContext) async throws {
         self.hostContext = context
-        self.store.setHostContext(context)
         await store.loadCredentialsAndInitialize()
     }
     
     public func onTerminate() async {}
     
-    public func makeSettingsView() -> AnyView? {
-        return nil
-    }
-    
-    // 1. Sidebar contribution
+    // 1. 侧边栏扩展项
     public var sidebarItem: TTZipSidebarContribution? {
         TTZipSidebarContribution(
             id: "larksync.sidebar",
@@ -56,18 +48,18 @@ public final class LarkSyncPlugin: NSObject, TTZipPlugin {
         )
     }
     
-    // 2. Main workspace view contribution (3-column Miller Columns)
+    // 2. 主工作区面板扩展 (3 栏米勒列)
     public func makeWorkspaceView(tabIdentifier: String) -> AnyView? {
         guard tabIdentifier == "larksync.workspace" else { return nil }
         return AnyView(LarkWorkspaceView(store: self.store))
     }
     
-    // 3. Pro inspector view contribution
+    // 3. Pro 检查器扩展
     public func makeInspectorView(selectedContext: Any?) -> AnyView? {
         return AnyView(LarkInspectorView())
     }
     
-    // 4. Global Omnibar command contribution
+    // 4. 全局 Omnibar 命令扩展
     public var omnibarCommands: [TTZipCommandAction] {
         [
             TTZipCommandAction(
@@ -84,18 +76,12 @@ public final class LarkSyncPlugin: NSObject, TTZipPlugin {
     }
 }
 
-/// Dynamic factory function for TTZipPluginLoader.
+/// 导出供 TTZipPluginLoader 动态调用的工厂函数
 @_cdecl("createTTZipPlugin")
 @MainActor
 public func createTTZipPlugin() -> UnsafeMutableRawPointer {
     let plugin = LarkSyncPlugin()
     return Unmanaged.passRetained(plugin).toOpaque()
-}
-
-@_cdecl("createTTZipPlugin_v1")
-@MainActor
-public func createTTZipPlugin_v1() -> UnsafeMutableRawPointer {
-    createTTZipPlugin()
 }
 
 #if os(macOS)
@@ -110,10 +96,5 @@ public func getLarkSyncWorkspaceView_c(rawPluginPtr: UnsafeMutableRawPointer, ta
     let nsView = NSHostingView(rootView: view)
     return Unmanaged.passRetained(nsView).toOpaque()
 }
-
-@_cdecl("createTTZipWorkspaceView")
-@MainActor
-public func createTTZipWorkspaceView(rawPluginPtr: UnsafeMutableRawPointer, tabIdCString: UnsafePointer<CChar>) -> UnsafeMutableRawPointer? {
-    getLarkSyncWorkspaceView_c(rawPluginPtr: rawPluginPtr, tabIdCString: tabIdCString)
-}
 #endif
+

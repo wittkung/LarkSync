@@ -2,14 +2,12 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
-//
-// TTZip: High-performance native archiving and compression engine.
 
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 
-/// AIMD (Additive Increase / Multiplicative Decrease) adaptive rate limiter.
+/// AIMD (Additive Increase / Multiplicative Decrease) 自适应流控器
 #[derive(Clone)]
 pub struct AdaptiveRateLimiter {
     current_qps: Arc<AtomicU32>,
@@ -24,14 +22,14 @@ impl AdaptiveRateLimiter {
         }
     }
 
-    /// Acquires permission to dispatch request with smoothed pace.
+    /// 请求执行前获取令牌 (平滑延迟)
     pub async fn acquire(&self) {
         let qps = self.current_qps.load(Ordering::Relaxed).max(1);
         let interval_micros = 1_000_000 / qps as u64;
         sleep(Duration::from_micros(interval_micros)).await;
     }
 
-    /// On success: Additive Increase.
+    /// 成功响应：加法递增 (Additive Increase)
     pub fn on_success(&self) {
         let succ = self.consecutive_successes.fetch_add(1, Ordering::Relaxed);
         if succ >= 10 {
@@ -43,7 +41,7 @@ impl AdaptiveRateLimiter {
         }
     }
 
-    /// On HTTP 429 rate limited: Multiplicative Decrease.
+    /// 遇到 429 速率限制：乘法骤降 (Multiplicative Decrease)
     pub fn on_rate_limited(&self) {
         self.consecutive_successes.store(0, Ordering::Relaxed);
         let prev = self.current_qps.load(Ordering::Relaxed);
@@ -51,4 +49,3 @@ impl AdaptiveRateLimiter {
         self.current_qps.store(new_qps, Ordering::Relaxed);
     }
 }
-

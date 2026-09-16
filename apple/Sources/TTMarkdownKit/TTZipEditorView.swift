@@ -2,13 +2,11 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
-//
-// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import WebKit
 
-/// Typora-like WYSIWYG Markdown editor component.
+/// 类 Typora 所见即所得 Markdown 编辑器组件
 public struct TTZipEditorView: NSViewRepresentable {
     @Binding public var text: String
     public var isEditable: Bool
@@ -40,7 +38,7 @@ public struct TTZipEditorView: NSViewRepresentable {
         config.userContentController = controller
         
         let webView = WKWebView(frame: .zero, configuration: config)
-        webView.underPageBackgroundColor = .clear
+        webView.setValue(false, forKey: "drawsBackground") // 开启透明背景
         webView.navigationDelegate = context.coordinator
         
         let htmlTemplate = generateEditorHTML(initialMarkdown: text, isEditable: isEditable)
@@ -50,37 +48,24 @@ public struct TTZipEditorView: NSViewRepresentable {
     }
     
     public func updateNSView(_ nsView: WKWebView, context: Context) {
-        // 1. Bidirectional content sync
+        // 1. 内容双向同步
         if context.coordinator.cachedText != text {
             context.coordinator.cachedText = text
-            nsView.callAsyncJavaScript(
-                "if (window.ttzipSetContent) { window.ttzipSetContent(newContent); }",
-                arguments: ["newContent": text],
-                in: nil,
-                in: .page,
-                completionHandler: nil
-            )
+            let escaped = text.replacingOccurrences(of: "\\", with: "\\\\")
+                              .replacingOccurrences(of: "`", with: "\\`")
+                              .replacingOccurrences(of: "$", with: "\\$")
+            nsView.evaluateJavaScript("if (window.ttzipSetContent) { window.ttzipSetContent(`\(escaped)`); }")
         }
         
-        // 2. Responsive theme mode (Dark / Light)
+        // 2. 外观主题模式响应式联动 (Dark / Light)
         let themeName = colorScheme == .dark ? "dark" : "light"
-        nsView.callAsyncJavaScript(
-            "if (window.ttzipSetTheme) { window.ttzipSetTheme(themeName); }",
-            arguments: ["themeName": themeName],
-            in: nil,
-            in: .page,
-            completionHandler: nil
-        )
+        nsView.evaluateJavaScript("if (window.ttzipSetTheme) { window.ttzipSetTheme('\(themeName)'); }")
         
-        // 3. Dynamic custom CSS theme injection
+        // 3. 动态注入外部 Typora 社区 CSS 主题
         if let css = customThemeCSS, !css.isEmpty {
-            nsView.callAsyncJavaScript(
-                "if (window.ttzipLoadCustomTheme) { window.ttzipLoadCustomTheme(customCSS); }",
-                arguments: ["customCSS": css],
-                in: nil,
-                in: .page,
-                completionHandler: nil
-            )
+            let escapedCSS = css.replacingOccurrences(of: "\\", with: "\\\\")
+                                .replacingOccurrences(of: "`", with: "\\`")
+            nsView.evaluateJavaScript("if (window.ttzipLoadCustomTheme) { window.ttzipLoadCustomTheme(`\(escapedCSS)`); }")
         }
     }
     
@@ -119,11 +104,6 @@ public struct TTZipEditorView: NSViewRepresentable {
         let bundleURL = Bundle.module.url(forResource: "editor.bundle", withExtension: "js")
         let bundleContent = (try? String(contentsOf: bundleURL!)) ?? ""
         
-        let escapedMarkdown = initialMarkdown
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-        
         return """
         <!DOCTYPE html>
         <html>
@@ -135,7 +115,7 @@ public struct TTZipEditorView: NSViewRepresentable {
         </head>
         <body>
             <div id="write" contenteditable="\(isEditable ? "true" : "false")">
-                \(escapedMarkdown)
+                \(initialMarkdown)
             </div>
             <script>
                 \(bundleContent)

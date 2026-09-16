@@ -2,8 +2,6 @@
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
-//
-// TTZip: High-performance native archiving and compression engine.
 
 import SwiftUI
 import Observation
@@ -31,7 +29,7 @@ private final class ProgressBridge: SyncProgressCallback, @unchecked Sendable {
     }
 }
 
-/// Feishu Wiki bidirectional synchronization state machine (Swift 6 @Observable + UniFFI Rust Engine).
+/// 飞书知识库双向同步主状态机 (Swift 6 @Observable + UniFFI Rust Engine)
 @Observable
 @MainActor
 public final class LarkSyncStore {
@@ -41,7 +39,7 @@ public final class LarkSyncStore {
     public var selectedNodeToken: String? = nil
     public var currentMarkdown: String = ""
     
-    // Subtree selective sync scope
+    // 子树选择性同步范围
     public var syncSubtreeRootToken: String? = nil
     public var syncSubtreeTitle: String? = nil
     
@@ -49,148 +47,98 @@ public final class LarkSyncStore {
     public var isSyncing: Bool = false
     public var syncProgress: Double = 0.0
     public var lastSyncTime: Date?
-    public var statusMessage: String = "Ready"
+    public var statusMessage: String = "就绪"
     
     private var engine: LarkSyncEngine?
-    private var hostContext: TTZipHostContext?
+    private let hostContext: TTZipHostContext?
     
     public init(hostContext: TTZipHostContext? = nil) {
         self.hostContext = hostContext
     }
     
-    /// Injects host context dynamically.
-    public func setHostContext(_ context: TTZipHostContext) {
-        self.hostContext = context
-    }
-    
-    /// Reads tenant-scoped credentials from injected Keychain.
-    public func getCredentials() async -> (appId: String, appSecret: String) {
-        guard let keychain = hostContext?.keychain else {
-            return ("", "")
-        }
+    /// 从 Keychain 自动加载凭证并初始化引擎
+    public func loadCredentialsAndInitialize() async {
+        let keychain = hostContext?.keychain ?? SystemKeychainStore.shared
         let appId = (try? await keychain.get(key: "lark_app_id")) ?? ""
         let appSecret = (try? await keychain.get(key: "lark_app_secret")) ?? ""
-        return (appId, appSecret)
-    }
-    
-    /// Automatically loads credentials from Keychain and initializes the engine.
-    public func loadCredentialsAndInitialize() async {
-        let (appId, appSecret) = await getCredentials()
         
         if !appId.isEmpty && !appSecret.isEmpty {
             self.isConfigured = true
             do {
-                let storagePath = NSString(string: "~/.larksync").expandingTildeInPath
-                try await initializeEngine(appId: appId, appSecret: appSecret, storagePath: storagePath)
+                try await initializeEngine(appId: appId, appSecret: appSecret, storagePath: "~/.larksync")
             } catch {
-                self.statusMessage = "Engine initialization failed: \(error.localizedDescription)"
+                self.statusMessage = "引擎初始化失败: \(error.localizedDescription)"
             }
         } else {
             self.isConfigured = false
-            self.statusMessage = "Feishu App ID and App Secret not configured"
+            self.statusMessage = "未配置飞书 App ID 与 App Secret"
         }
     }
     
-    /// Saves credentials into tenant-scoped Keychain and re-initializes engine.
+    /// 保存凭证到 Keychain 并重新初始化
     public func saveCredentials(appId: String, appSecret: String) async throws {
-        guard let keychain = hostContext?.keychain else {
-            throw NSError(domain: "LarkSyncStore", code: 403, userInfo: [NSLocalizedDescriptionKey: "Host keychain store unavailable"])
-        }
+        let keychain = hostContext?.keychain ?? SystemKeychainStore.shared
         try await keychain.set(key: "lark_app_id", value: appId.trimmingCharacters(in: .whitespacesAndNewlines))
         try await keychain.set(key: "lark_app_secret", value: appSecret.trimmingCharacters(in: .whitespacesAndNewlines))
         await loadCredentialsAndInitialize()
     }
     
-    /// Sets selective sync scope for a specific subtree.
+    /// 设置选择性同步子树范围
     public func setSyncSubtreeScope(nodeToken: String, title: String) {
         self.syncSubtreeRootToken = nodeToken
         self.syncSubtreeTitle = title
-        self.statusMessage = "Sync scope locked to: \(title)"
-        self.hostContext?.showNotification(title: "Sync Scope Changed", message: "Sync restricted to directory: \(title) and its descendants", level: .info)
+        self.statusMessage = "同步范围已锁定为: \(title)"
+        self.hostContext?.showNotification(title: "同步范围变更", message: "当前仅同步目录: \(title) 及其子文档", level: .info)
     }
     
-    /// Resets sync scope to full space.
+    /// 恢复为全量空间同步
     public func resetSyncScopeToFull() {
         self.syncSubtreeRootToken = nil
         self.syncSubtreeTitle = nil
-        self.statusMessage = "Restored to full space sync"
+        self.statusMessage = "已恢复为全量空间同步"
     }
     
-    /// Initializes and connects pure Rust microkernel engine.
+    /// 初始化并连接 Rust 核心引擎
     public func initializeEngine(appId: String, appSecret: String, storagePath: String) async throws {
         let config = LarkAuthConfig(appId: appId, appSecret: appSecret)
         self.engine = try LarkSyncEngine(config: config, storagePath: storagePath)
         await refreshSpaces()
     }
     
-    /// Refreshes list of visible spaces.
+    /// 刷新空间列表
     public func refreshSpaces() async {
         guard let engine = self.engine else { return }
         do {
-            self.statusMessage = "Fetching Wiki spaces..."
+            self.statusMessage = "正在获取空间列表..."
             self.spaces = try await engine.fetchSpaces()
             if let first = self.spaces.first {
                 self.selectedSpaceId = first.spaceId
                 await refreshNodes(spaceId: first.spaceId)
             }
-            self.statusMessage = "Spaces loaded successfully"
+            self.statusMessage = "空间加载完成"
         } catch {
-            self.statusMessage = "Failed to fetch spaces: \(error.localizedDescription)"
+            self.statusMessage = "获取空间失败: \(error)"
         }
     }
     
-    /// Refreshes Wiki tree nodes for a space.
+    /// 刷新指定空间下的 Wiki 树
     public func refreshNodes(spaceId: String) async {
         guard let engine = self.engine else { return }
         do {
-            self.statusMessage = "Fetching Wiki node tree..."
+            self.statusMessage = "正在拉取知识库树..."
             self.wikiNodes = try await engine.fetchWikiTree(spaceId: spaceId)
-            self.statusMessage = "Loaded \(self.wikiNodes.count) documents"
+            self.statusMessage = "已加载 \(self.wikiNodes.count) 篇文档"
         } catch {
-            self.statusMessage = "Failed to fetch Wiki tree: \(error.localizedDescription)"
+            self.statusMessage = "拉取知识库树失败: \(error)"
         }
     }
     
-    /// Loads local document asynchronously on background detached task to prevent main-thread jank.
-    public func loadDocument(for nodeToken: String) async {
-        guard let node = self.wikiNodes.first(where: { $0.nodeToken == nodeToken }) else { return }
-        let spaceId = self.selectedSpaceId ?? ""
-        let nodeTitle = node.title
-        
-        let loadedContent = await Task.detached(priority: .userInitiated) { () -> String in
-            let safeTitle = nodeTitle
-            let targetFile = NSString(string: "~/.larksync/spaces/\(spaceId)/\(safeTitle).md").expandingTildeInPath
-            if FileManager.default.fileExists(atPath: targetFile),
-               let content = try? String(contentsOfFile: targetFile, encoding: .utf8) {
-                return content
-            } else {
-                return "# \(safeTitle)\n\n*(Document not yet synced locally. Click incremental sync in the top-right to pull)*"
-            }
-        }.value
-        
-        self.currentMarkdown = loadedContent
-    }
-    
-    /// Persists current document asynchronously on background detached task.
-    public func saveDocument(content: String, for nodeToken: String) async {
-        guard let node = self.wikiNodes.first(where: { $0.nodeToken == nodeToken }) else { return }
-        let spaceId = self.selectedSpaceId ?? ""
-        let nodeTitle = node.title
-        
-        await Task.detached(priority: .background) {
-            let targetFile = NSString(string: "~/.larksync/spaces/\(spaceId)/\(nodeTitle).md").expandingTildeInPath
-            let parentDir = (targetFile as NSString).deletingLastPathComponent
-            try? FileManager.default.createDirectory(atPath: parentDir, withIntermediateDirectories: true)
-            try? content.write(toFile: targetFile, atomically: true, encoding: .utf8)
-        }.value
-    }
-    
-    /// Triggers incremental sync pull with background progress bridging.
+    /// 触发增量同步拉取 (支持选择性同步子目录)
     public func triggerIncrementalSync() async {
         guard !self.isSyncing, let engine = self.engine, let spaceId = self.selectedSpaceId, !spaceId.isEmpty else { return }
         self.isSyncing = true
-        let scopeName = self.syncSubtreeTitle.map { "[\($0)]" } ?? "All Spaces"
-        self.statusMessage = "Syncing \(scopeName)..."
+        let scopeName = self.syncSubtreeTitle.map { "[\($0)]" } ?? "全部空间"
+        self.statusMessage = "正在同步 \(scopeName)..."
         self.syncProgress = 0.0
         
         let targetDir = NSString(string: "~/.larksync/spaces/\(spaceId)").expandingTildeInPath
@@ -215,22 +163,22 @@ public final class LarkSyncStore {
             )
             self.isSyncing = false
             self.lastSyncTime = Date()
-            self.statusMessage = "Sync complete (\(processed) documents synced)"
-            self.hostContext?.showNotification(title: "Feishu Wiki", message: "Successfully synced \(processed) documents (\(scopeName))", level: .success)
+            self.statusMessage = "同步完成 (已同步 \(processed) 篇文档)"
+            self.hostContext?.showNotification(title: "飞书知识库", message: "已成功同步 \(processed) 篇文档 (\(scopeName))", level: .success)
             await refreshNodes(spaceId: spaceId)
         } catch {
             self.isSyncing = false
-            self.statusMessage = "Sync failed: \(error.localizedDescription)"
-            self.hostContext?.showNotification(title: "Sync Failed", message: error.localizedDescription, level: .error)
+            self.statusMessage = "同步失败: \(error)"
+            self.hostContext?.showNotification(title: "同步失败", message: error.localizedDescription, level: .error)
         }
     }
 
-    /// Exports Wiki space to TTZip archive.
+    /// 导出为 TTZip 归档（支持选择性导出子目录）
     public func exportToTtzipArchive(destinationURL: URL) async throws {
         guard let engine = self.engine, let spaceId = self.selectedSpaceId, !spaceId.isEmpty else { return }
         let callback = ProgressBridge { [weak self] event in
             Task { @MainActor in
-                self?.statusMessage = "Packaging archive: \(event.currentItemName)"
+                self?.statusMessage = "归档打包: \(event.currentItemName)"
             }
         }
         try await engine.exportToTtzip(
