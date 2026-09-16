@@ -21,6 +21,7 @@ public final class LarkSyncPlugin: NSObject, TTZipPlugin {
         description: "双向增量同步飞书知识库，支持 DocX 高保真 Markdown 互转、类 Typora 所见即所得编辑与一键 zstd 归档备份",
         iconSystemName: "cloud.fill",
         homepage: URL(string: "https://github.com/wittkung/LarkSync"),
+        minHostVersion: "1.0.0",
         permissions: [.networkAccess, .keychainAccess, .fileSystemWrite, .archiveEngine]
     )
     
@@ -38,6 +39,10 @@ public final class LarkSyncPlugin: NSObject, TTZipPlugin {
     }
     
     public func onTerminate() async {}
+    
+    public func makeSettingsView() -> AnyView? {
+        return nil
+    }
     
     // 1. Sidebar contribution
     public var sidebarItem: TTZipSidebarContribution? {

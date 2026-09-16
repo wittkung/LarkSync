@@ -19,13 +19,14 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .library(name: "TTZipPluginKit", targets: ["TTZipPluginKit"]),
         .library(name: "TTMarkdownKit", targets: ["TTMarkdownKit"]),
         .library(name: "LarkSyncCore", targets: ["LarkSyncCore"]),
         .library(name: "LarkSyncUI", targets: ["LarkSyncUI"]),
         .library(name: "LarkSyncPlugin", type: .dynamic, targets: ["LarkSyncPlugin"])
     ],
-    dependencies: [],
+    dependencies: [
+        .package(path: "Sources/TTZipPluginKit")
+    ],
     targets: [
         // 1. Mozilla UniFFI C-ABI Modulemap Target
         .target(
@@ -53,18 +54,10 @@ let package = Package(
             ]
         ),
 
-        // 3. TTZip official plugin SDK
-        .target(
-            name: "TTZipPluginKit",
-            path: "Sources/TTZipPluginKit",
-            exclude: ["README.md", "README.zh-CN.md"],
-            swiftSettings: swiftSettings
-        ),
-        
-        // 4. WYSIWYG Markdown engine and theme rendering kit
+        // 3. WYSIWYG Markdown engine and theme rendering kit
         .target(
             name: "TTMarkdownKit",
-            dependencies: ["TTZipPluginKit"],
+            dependencies: [.product(name: "TTZipPluginKit", package: "TTZipPluginKit")],
             path: "Sources/TTMarkdownKit",
             resources: [
                 .process("Resources")
@@ -72,26 +65,32 @@ let package = Package(
             swiftSettings: swiftSettings
         ),
         
-        // 5. LarkSync native UI components (Miller columns / inspector / editor)
+        // 4. LarkSync native UI components (Miller columns / inspector / editor)
         .target(
             name: "LarkSyncUI",
-            dependencies: ["TTZipPluginKit", "TTMarkdownKit", "LarkSyncCore"],
+            dependencies: [.product(name: "TTZipPluginKit", package: "TTZipPluginKit"), "TTMarkdownKit", "LarkSyncCore"],
             path: "Sources/LarkSyncUI",
             swiftSettings: swiftSettings
         ),
         
-        // 6. LarkSync plugin dynamic entry
+        // 5. LarkSync plugin dynamic entry
         .target(
             name: "LarkSyncPlugin",
-            dependencies: ["TTZipPluginKit", "TTMarkdownKit", "LarkSyncCore", "LarkSyncUI"],
+            dependencies: [.product(name: "TTZipPluginKit", package: "TTZipPluginKit"), "TTMarkdownKit", "LarkSyncCore", "LarkSyncUI"],
             path: "Sources/LarkSyncPlugin",
-            swiftSettings: swiftSettings
+            swiftSettings: swiftSettings,
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../Frameworks",
+                    "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"
+                ])
+            ]
         ),
         
-        // 7. Unit test suite
+        // 6. Unit test suite
         .testTarget(
             name: "TTZipPluginKitTests",
-            dependencies: ["TTZipPluginKit", "TTMarkdownKit"],
+            dependencies: [.product(name: "TTZipPluginKit", package: "TTZipPluginKit"), "TTMarkdownKit"],
             path: "Tests/TTZipPluginKitTests",
             swiftSettings: swiftSettings
         )

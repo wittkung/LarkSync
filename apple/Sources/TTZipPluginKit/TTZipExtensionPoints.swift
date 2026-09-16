@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
 // All rights reserved.
@@ -33,7 +33,7 @@ public struct TTZipSidebarContribution: Sendable, Identifiable {
     }
 }
 
-// MARK: - 4. Preview Provider
+// MARK: - 4. Preview Provider Protocol
 @MainActor
 public protocol TTZipPreviewProvider: AnyObject {
     var supportedExtensions: [String] { get }
@@ -41,7 +41,7 @@ public protocol TTZipPreviewProvider: AnyObject {
     @ViewBuilder func makePreviewView(fileURL: URL) -> AnyView
 }
 
-// MARK: - 5. Archive / VFS Source Provider
+// MARK: - 5. Archive / VFS Source Provider Protocol
 @MainActor
 public protocol TTZipArchiveSourceProvider: AnyObject {
     var scheme: String { get } // e.g. "lark://", "s3://", "notion://"
@@ -66,7 +66,7 @@ public struct TTZipVirtualEntry: Sendable, Identifiable {
     }
 }
 
-// MARK: - 6. Omnibar Command Action
+// MARK: - 6. Global Omnibar Command Action
 public struct TTZipCommandAction: Sendable, Identifiable {
     public let id: String
     public let title: String
