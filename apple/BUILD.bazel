@@ -33,6 +33,7 @@ swift_library(
     copts = [
         "-enable-upcoming-feature",
         "StrictConcurrency",
+        "-enable-testing",
     ],
     module_name = "TTZipPluginKit",
     visibility = ["//visibility:public"],
@@ -60,6 +61,7 @@ swift_library(
     copts = [
         "-enable-upcoming-feature",
         "StrictConcurrency",
+        "-enable-testing",
     ],
     data = glob(["Sources/TTMarkdownKit/Resources/**"]),
     module_name = "TTMarkdownKit",

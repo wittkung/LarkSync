@@ -1,5 +1,12 @@
 # LarkSync — 项目级 AI 执行规则 (Project-Level Agent Rules)
 
+> **Monorepo Topology & SSOT Invariant**:
+> 本模块已正式纳入 `metastudyline/source` 单体大仓统一治理体系（位于 `studio-lab/larksync`）。
+> 1. **代码真理源**: 大仓 (`metastudyline/source`) 为唯一起草、集成与原子验证真理源；独立 GitHub 仓库 (`LarkSync`) 为由 `tools/copybara/sync_outbound.sh` 自动单向同步与脱敏的开源分发镜像；
+> 2. **构建与测试真理源**: 在大仓内开发时，唯一测试与构建真理源为 Bazel 8 CAS 缓存（`bazel test //studio-lab/larksync/...`）与统一门禁 `ttaction run`；
+> 3. **开源生态原生契约**: 独立开源小仓完全遵循语言标准第一公民契约（Swift `swift test` / Rust `cargo test` / Node `pnpm test`），严禁手写维护私有碎片化 Shell 脚本；
+> 4. **全仓协同规范**: 必须遵守根目录 `AGENTS.md` 确立的 One-Version Rule 与 Visibility 密封控制，严禁非受控跨模块物理路径引用。
+
 ## 一、 项目概况与架构定位
 
 LarkSync 是专为 VS Code 设计的飞书知识库双向同步与 Markdown 沉浸式管理扩展。

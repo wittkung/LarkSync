@@ -46,7 +46,3 @@ alias(
     actual = "//studio-lab/larksync/apple:LarkSyncPlugin",
 )
 
-alias(
-    name = "TTZipPluginKitTests",
-    actual = "//studio-lab/larksync/apple:TTZipPluginKitTests",
-)
