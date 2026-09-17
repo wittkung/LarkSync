@@ -2,7 +2,7 @@
 //
 // TTZipPluginInstallerTests: End-to-end integration tests for plugin installer and registry.
 
-import Testing
+import XCTest
 import Foundation
 import SwiftUI
 @testable import TTZipPluginKit
@@ -32,10 +32,8 @@ private final class MockKeychain: TTZipKeychainStore, @unchecked Sendable {
     func delete(key: String) async throws { store.removeValue(forKey: key) }
 }
 
-@Suite("TTZip Plugin Installer E2E Tests")
-struct TTZipPluginInstallerTests {
+final class TTZipPluginInstallerTests: XCTestCase {
     
-    @Test("Test Full Atomic Installation and Hot-Mounting Pipeline")
     @MainActor
     func testAtomicInstallPipeline() async throws {
         let fallback = TTZipMarketplaceService.fallbackPlugin
@@ -52,16 +50,16 @@ struct TTZipPluginInstallerTests {
         
         // 2. 验证 Registry 已挂载
         let installed = TTZipPluginRegistry.shared.installedPlugins
-        #expect(!installed.isEmpty)
-        #expect(installed.contains(where: { $0.manifest.id == fallback.id }))
+        XCTAssertFalse(installed.isEmpty)
+        XCTAssertTrue(installed.contains(where: { $0.manifest.id == fallback.id }))
         
         // 3. 验证侧边栏项已动态挂载
         let sidebarItems = TTZipPluginRegistry.shared.sidebarItems
-        #expect(sidebarItems.contains(where: { $0.id == "larksync.sidebar" }))
+        XCTAssertTrue(sidebarItems.contains(where: { $0.id == "larksync.sidebar" }))
         
         // 4. 验证反注册与卸载 (包括 Registry 与 侧边栏贡献项全部同步移除)
         await TTZipPluginRegistry.shared.unregister(pluginId: fallback.id)
-        #expect(!TTZipPluginRegistry.shared.installedPlugins.contains(where: { $0.manifest.id == fallback.id }))
-        #expect(!TTZipPluginRegistry.shared.sidebarItems.contains(where: { $0.id == "larksync.sidebar" }))
+        XCTAssertFalse(TTZipPluginRegistry.shared.installedPlugins.contains(where: { $0.manifest.id == fallback.id }))
+        XCTAssertFalse(TTZipPluginRegistry.shared.sidebarItems.contains(where: { $0.id == "larksync.sidebar" }))
     }
 }

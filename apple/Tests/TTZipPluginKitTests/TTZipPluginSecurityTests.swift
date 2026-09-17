@@ -2,15 +2,13 @@
 //
 // TTZipPluginSecurityTests: Cryptographic verification and Zip Slip defense unit tests.
 
-import Testing
+import XCTest
 import Foundation
 import CryptoKit
 @testable import TTZipPluginKit
 
-@Suite("TTZip Plugin Security & Crypto Tests")
-struct TTZipPluginSecurityTests {
+final class TTZipPluginSecurityTests: XCTestCase {
     
-    @Test("Test Ed25519 Signature Generation and Verification Flow")
     func testEd25519CryptoKitRoundtrip() throws {
         // 1. 生成真实 Ed25519 密钥对
         let privateKey = Curve25519.Signing.PrivateKey()
@@ -38,16 +36,17 @@ struct TTZipPluginSecurityTests {
         let tamperedData = "Tampered Content".data(using: .utf8)!
         try tamperedData.write(to: tempFile)
         
-        #expect(throws: TTZipPluginSecurity.SecurityError.self) {
+        XCTAssertThrowsError(
             try TTZipPluginSecurity.verifyEd25519(
                 archiveFileURL: tempFile,
                 signatureBase64: sigBase64,
                 trustedPublicKeyBase64: pubBase64
             )
+        ) { error in
+            XCTAssertTrue(error is TTZipPluginSecurity.SecurityError)
         }
     }
     
-    @Test("Test Real Production LarkSync Archive Ed25519 Verification")
     func testRealLarkSyncArchiveVerification() throws {
         let fallback = TTZipMarketplaceService.fallbackPlugin
         let zipURL = URL(fileURLWithPath: "/Users/kevintung/Documents/dev/studio-lab/larksync/dist/LarkSync-v\(fallback.version).ttplugin.zip")
@@ -57,7 +56,6 @@ struct TTZipPluginSecurityTests {
         
         // 1. 验证真实 SHA-256 哈希
         try TTZipPluginSecurity.verifyStreamingSHA256(fileURL: zipURL, expectedHex: fallback.sha256)
-
         
         // 2. 验证真实 Ed25519 签名
         try TTZipPluginSecurity.verifyEd25519(
@@ -67,7 +65,6 @@ struct TTZipPluginSecurityTests {
         )
     }
     
-    @Test("Test Zip Slip Path Traversal Defense")
     func testZipSlipDefense() throws {
         let stagingDir = FileManager.default.temporaryDirectory.appendingPathComponent("test-staging-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: stagingDir, withIntermediateDirectories: true)
@@ -76,12 +73,14 @@ struct TTZipPluginSecurityTests {
         // 合法路径
         let safePath = "LarkSync.ttplugin/Contents/Info.plist"
         let safeURL = try TTZipPluginSecurity.validateSafeDestination(entryRelativePath: safePath, stagingRoot: stagingDir)
-        #expect(safeURL.path.hasPrefix(stagingDir.path))
+        XCTAssertTrue(safeURL.path.hasPrefix(stagingDir.path))
         
         // 恶意穿越路径
         let maliciousPath = "../../Applications/EvilApp.app"
-        #expect(throws: TTZipPluginSecurity.SecurityError.self) {
-            _ = try TTZipPluginSecurity.validateSafeDestination(entryRelativePath: maliciousPath, stagingRoot: stagingDir)
+        XCTAssertThrowsError(
+            try TTZipPluginSecurity.validateSafeDestination(entryRelativePath: maliciousPath, stagingRoot: stagingDir)
+        ) { error in
+            XCTAssertTrue(error is TTZipPluginSecurity.SecurityError)
         }
     }
 }

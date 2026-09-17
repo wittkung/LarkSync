@@ -2,16 +2,14 @@
 //
 // TTZipPluginKitTests: Unit tests for Plugin Registry and Extensions.
 
-import Testing
+import XCTest
 import Foundation
 @testable import TTZipPluginKit
 @testable import TTMarkdownKit
 
-@Suite("TTZip Plugin Kit Tests")
-struct TTZipPluginKitTests {
+final class TTZipPluginKitTests: XCTestCase {
     
-    @Test("Test Plugin Manifest Validation")
-    func testPluginManifest() {
+    func testPluginManifest() throws {
         let manifest = TTZipPluginManifest(
             id: "com.test.plugin",
             name: "Test Plugin",
@@ -22,14 +20,13 @@ struct TTZipPluginKitTests {
             permissions: [.networkAccess, .keychainAccess]
         )
         
-        #expect(manifest.id == "com.test.plugin")
-        #expect(manifest.permissions.count == 2)
-        #expect(manifest.permissions.contains(.networkAccess))
+        XCTAssertEqual(manifest.id, "com.test.plugin")
+        XCTAssertEqual(manifest.permissions.count, 2)
+        XCTAssertTrue(manifest.permissions.contains(.networkAccess))
     }
     
-    @Test("Test Theme Tokens Integrity")
-    func testThemeTokens() {
-        #expect(TTZipTheme.Layout.headerBarHeight == 52.0)
-        #expect(TTZipTheme.Layout.kintsugiGoldLineHeight == 1.5)
+    func testThemeTokens() throws {
+        XCTAssertEqual(TTZipTheme.Layout.headerBarHeight, 52.0)
+        XCTAssertEqual(TTZipTheme.Layout.kintsugiGoldLineHeight, 1.5)
     }
 }

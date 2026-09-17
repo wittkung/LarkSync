@@ -74,6 +74,20 @@ larksync/
 
 ## 🚀 Developer Toolchain & Release Guide
 
+### 0. Prerequisites & Native FFI Build
+When developing or testing locally via Swift Package Manager (`apple/Package.swift`), the Rust FFI library must be compiled first:
+```bash
+# Build the Rust FFI dynamic/static library
+cargo build -p larksync-ffi --release
+
+# Or use the one-click binding generator
+./scripts/generate-bindings.sh
+```
+Inside the MetastudyLine Monorepo, Bazel builds and tests `larksync` completely hermetically:
+```bash
+bazel test //studio-lab/larksync/...
+```
+
 ### 1. Run Core Unit Tests
 ```bash
 cargo test
