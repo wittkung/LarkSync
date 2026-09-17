@@ -17,12 +17,12 @@ rust_library(
     edition = "2021",
     deps = [
         "//studio-lab/larksync/crates/larksync-core:larksync_core",
-        "@crates_larksync//:anyhow",
-        "@crates_larksync//:serde",
-        "@crates_larksync//:serde_json",
-        "@crates_larksync//:thiserror",
-        "@crates_larksync//:tokio",
-        "@crates_larksync//:uniffi",
+        "@crates//:anyhow",
+        "@crates//:serde",
+        "@crates//:serde_json",
+        "@crates//:thiserror",
+        "@crates//:tokio",
+        "@crates//:uniffi",
     ],
 )
 
@@ -34,12 +34,12 @@ rust_static_library(
     edition = "2021",
     deps = [
         "//studio-lab/larksync/crates/larksync-core:larksync_core",
-        "@crates_larksync//:anyhow",
-        "@crates_larksync//:serde",
-        "@crates_larksync//:serde_json",
-        "@crates_larksync//:thiserror",
-        "@crates_larksync//:tokio",
-        "@crates_larksync//:uniffi",
+        "@crates//:anyhow",
+        "@crates//:serde",
+        "@crates//:serde_json",
+        "@crates//:thiserror",
+        "@crates//:tokio",
+        "@crates//:uniffi",
     ],
 )
 
