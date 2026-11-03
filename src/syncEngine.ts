@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * syncEngine.ts
  * 同步引擎 — 编排文档拉取、AST 转换、文件写入和媒体下载

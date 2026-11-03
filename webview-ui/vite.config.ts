@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 

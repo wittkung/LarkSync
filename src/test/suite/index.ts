@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 import * as path from 'path';
 import Mocha from 'mocha';
 import * as glob from 'glob';

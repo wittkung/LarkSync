@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: GPL-3.0-or-later
-#
-# verify_bundle_linkage.sh: TTZip & Plugin Mach-O 动态链接与 dyld 启动安全门禁
+# Copyright 2026 MetastudyLine. All rights reserved.
+# Proprietary and confidential.
 
 set -euo pipefail
 

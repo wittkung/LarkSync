@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * syncFileDecorationProvider.ts
  * 文件装饰器 — 为统一知识树中的节点渲染 A/M/D 差异状态徽标

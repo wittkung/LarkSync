@@ -1,12 +1,9 @@
-// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
-//
-// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
-// All rights reserved.
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
 
 import SwiftUI
 import TTMarkdownKit
 import LarkSyncCore
-import TTZipPluginKit
 
 public struct LarkWorkspaceView: View {
     @State private var store: LarkSyncStore
@@ -116,14 +113,14 @@ public struct LarkWorkspaceView: View {
                             Text("📖 飞书配置指南")
                                 .font(.system(size: 11, weight: .medium))
                         }
-                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                        .foregroundStyle(MarkdownTheme.kintsugiGold)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(TTZipTheme.kintsugiGold.opacity(0.08))
+                        .background(MarkdownTheme.kintsugiGold.opacity(0.08))
                         .clipShape(Capsule())
                         .overlay(
                             Capsule()
-                                .stroke(TTZipTheme.kintsugiGold, lineWidth: 1)
+                                .stroke(MarkdownTheme.kintsugiGold, lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -137,7 +134,7 @@ public struct LarkWorkspaceView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(TTZipTheme.kintsugiGold)
+                    .tint(MarkdownTheme.kintsugiGold)
                     .disabled(inputAppId.isEmpty || inputAppSecret.isEmpty)
                 }
             }
@@ -578,14 +575,14 @@ public struct LarkWorkspaceView: View {
                         Text("📖 飞书配置指南")
                             .font(.system(size: 11, weight: .medium))
                     }
-                    .foregroundStyle(TTZipTheme.kintsugiGold)
+                    .foregroundStyle(MarkdownTheme.kintsugiGold)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(TTZipTheme.kintsugiGold.opacity(0.08))
+                    .background(MarkdownTheme.kintsugiGold.opacity(0.08))
                     .clipShape(Capsule())
                     .overlay(
                         Capsule()
-                            .stroke(TTZipTheme.kintsugiGold, lineWidth: 0.8)
+                            .stroke(MarkdownTheme.kintsugiGold, lineWidth: 0.8)
                     )
                 }
                 .buttonStyle(.plain)

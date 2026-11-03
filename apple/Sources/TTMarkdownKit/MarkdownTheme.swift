@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: MIT
-//
-// TTMarkdownKit: TTZipTheme design tokens system.
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
 
 import SwiftUI
 
-public enum TTZipTheme {
+/// Canonical design tokens and typography system for TTMarkdownKit and document rendering.
+public enum MarkdownTheme {
     // MARK: - 1. Color Palette Tokens
     public static let kintsugiGold = Color(red: 0.83, green: 0.69, blue: 0.22)   // #D4AF37
     public static let bambooGreen = Color(red: 0.18, green: 0.55, blue: 0.34)    // #2E8B57
@@ -34,7 +34,8 @@ public enum TTZipTheme {
     }
 }
 
-public struct TTZipLiquidGlassModifier: ViewModifier {
+/// Frosted liquid glass background modifier conforming to HIG optical materials.
+public struct LiquidGlassModifier: ViewModifier {
     var cornerRadius: CGFloat
     @Environment(\.colorScheme) var colorScheme
 
@@ -56,7 +57,23 @@ public struct TTZipLiquidGlassModifier: ViewModifier {
 }
 
 public extension View {
+    /// Applies liquid glass material background and stroke border.
+    func liquidGlass(cornerRadius: CGFloat = 12) -> some View {
+        self.modifier(LiquidGlassModifier(cornerRadius: cornerRadius))
+    }
+}
+
+// MARK: - Backward Compatibility Aliases
+
+@available(*, deprecated, renamed: "MarkdownTheme")
+public typealias TTZipTheme = MarkdownTheme
+
+@available(*, deprecated, renamed: "LiquidGlassModifier")
+public typealias TTZipLiquidGlassModifier = LiquidGlassModifier
+
+public extension View {
+    @available(*, deprecated, renamed: "liquidGlass")
     func ttzipLiquidGlass(cornerRadius: CGFloat = 12) -> some View {
-        self.modifier(TTZipLiquidGlassModifier(cornerRadius: cornerRadius))
+        liquidGlass(cornerRadius: cornerRadius)
     }
 }

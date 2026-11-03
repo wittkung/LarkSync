@@ -1,7 +1,6 @@
 #!/bin/bash
-# SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
-#
-# LarkSync Mozilla UniFFI Swift 绑定全自动生成与同步脚本
+# Copyright 2026 MetastudyLine. All rights reserved.
+# Proprietary and confidential.
 
 set -euo pipefail
 

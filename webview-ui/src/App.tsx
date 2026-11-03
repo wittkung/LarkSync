@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 import { useState, useEffect } from 'react'
 import { vscode } from './utils/vscode'
 import { Header } from './components/Header'

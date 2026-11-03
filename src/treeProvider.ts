@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * treeProvider.ts
  * 侧边栏文件树 — 使用 vscode.workspace.fs 实现 Remote Dev 兼容

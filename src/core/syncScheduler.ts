@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 import { SyncEngine } from '../syncEngine';
 import { logger } from '../logger';
 import * as vscode from 'vscode';

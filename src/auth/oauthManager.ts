@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * oauthManager.ts
  * OAuth 2.0 Authorization Code Flow + PKCE 管理器

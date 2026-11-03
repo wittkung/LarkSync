@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 export const CONSTANTS = {
     // API 配置
     FEISHU_API_BASE: 'https://open.feishu.cn/open-apis',

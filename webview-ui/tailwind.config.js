@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [

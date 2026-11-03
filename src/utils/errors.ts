@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 export class LarkSyncError extends Error {
     constructor(message: string) {
         super(message);

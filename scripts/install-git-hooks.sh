@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright 2026 MetastudyLine. All rights reserved.
+# Proprietary and confidential.
+
 # ==============================================================================
 # scripts/install-git-hooks.sh
 # 安装本地 CI/CD 门禁到 Git Hooks (Husky pre-commit / pre-push & .git/hooks)
@@ -24,7 +27,7 @@ cat << 'HOOK_EOF' > "${HOOKS_DIR}/pre-push"
 set -euo pipefail
 
 echo "🛡️  [Git Hook] 正在触发 pre-push 本地 CI/CD 质量门禁..."
-"$(git rev-parse --show-toplevel)/scripts/local-ci.sh"
+ttaction run
 HOOK_EOF
 chmod +x "${HOOKS_DIR}/pre-push"
 

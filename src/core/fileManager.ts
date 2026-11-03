@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * fileManager.ts
  * 文件管理器 — 使用 vscode.workspace.fs 实现 Remote Dev 兼容

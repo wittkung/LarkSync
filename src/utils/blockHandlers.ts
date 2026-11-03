@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * blockHandlers.ts
  * 飞书 Docx Block 各类型的 Markdown 映射处理函数

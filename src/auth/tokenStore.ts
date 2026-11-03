@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * tokenStore.ts
  * 安全凭证存储 — 基于 VS Code SecretStorage API

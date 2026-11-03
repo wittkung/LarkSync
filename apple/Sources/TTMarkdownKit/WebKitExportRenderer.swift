@@ -1,6 +1,5 @@
-// SPDX-License-Identifier: MIT
-//
-// TTMarkdownKit: High-Fidelity Multi-format Export Pipeline (PDF / Long Image / HTML).
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
 
 import Foundation
 import WebKit

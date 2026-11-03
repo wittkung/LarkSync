@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * markdownConverter.ts
  * 飞书 Docx Block AST → Markdown 转换引擎

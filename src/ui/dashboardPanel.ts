@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 import * as vscode from 'vscode';
 import { FeishuClient } from '../api/feishuClient';
 import { SyncEngine } from '../syncEngine';

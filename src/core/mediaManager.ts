@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * mediaManager.ts
  * 媒体资源（图片/附件）下载管理器

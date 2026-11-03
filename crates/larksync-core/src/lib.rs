@@ -1,7 +1,5 @@
-// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
-//
-// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
-// All rights reserved.
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
 
 pub mod client;
 pub mod converter;
@@ -176,9 +174,8 @@ impl LarkCoreEngine {
         let filtered_nodes = Self::filter_subtree(&remote_nodes, root_node_token);
         let total = filtered_nodes.len() as u32;
 
-        let mut processed = 0;
-        for node in &filtered_nodes {
-            processed += 1;
+        for (i, node) in filtered_nodes.iter().enumerate() {
+            let processed = (i + 1) as u32;
             on_progress(SyncProgressEvent {
                 current_step: "流式打包".to_string(),
                 processed_items: processed,

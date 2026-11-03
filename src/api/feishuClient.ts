@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import * as vscode from 'vscode';
 import { CONSTANTS } from '../utils/constants';

@@ -1,9 +1,7 @@
-// SPDX-License-Identifier: MIT
-//
-// LarkSyncUI: Pro Inspector View for Document Metadata and Diff status.
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
 
 import SwiftUI
-import TTZipPluginKit
 import TTMarkdownKit
 
 public struct LarkInspectorView: View {
@@ -22,36 +20,37 @@ public struct LarkInspectorView: View {
             Text("PRO INSPECTOR")
                 .font(.system(size: 9, weight: .bold, design: .serif))
                 .tracking(2)
-                .foregroundStyle(TTZipTheme.kintsugiGold)
+                .foregroundStyle(MarkdownTheme.kintsugiGold)
             
             VStack(alignment: .leading, spacing: 8) {
                 Text(docTitle)
-                    .font(TTZipTheme.Typography.title)
+                    .font(MarkdownTheme.Typography.title)
                 
                 HStack {
                     Text("修订代数:")
-                        .font(TTZipTheme.Typography.caption)
+                        .font(MarkdownTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                     Text("r\(revision)")
-                        .font(TTZipTheme.Typography.mono)
-                        .foregroundStyle(TTZipTheme.bambooGreen)
+                        .font(MarkdownTheme.Typography.mono)
+                        .foregroundStyle(MarkdownTheme.bambooGreen)
                 }
                 
                 HStack {
                     Text("本地映射:")
-                        .font(TTZipTheme.Typography.caption)
+                        .font(MarkdownTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                     Text(localPath)
-                        .font(TTZipTheme.Typography.caption)
+                        .font(MarkdownTheme.Typography.caption)
                         .lineLimit(1)
                 }
             }
             .padding(12)
-            .ttzipLiquidGlass()
+            .liquidGlass()
             
             Spacer()
         }
         .padding(14)
-        .frame(width: TTZipTheme.Layout.rightPanelDefaultWidth)
+        .frame(width: MarkdownTheme.Layout.rightPanelDefaultWidth)
     }
 }
+

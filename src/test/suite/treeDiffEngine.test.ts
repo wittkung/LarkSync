@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 import * as assert from 'assert';
 import { suite, test, setup, teardown } from 'mocha';
 import * as sinon from 'sinon';

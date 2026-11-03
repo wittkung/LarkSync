@@ -1,7 +1,6 @@
 #!/bin/bash
-# SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
-#
-# LarkSync 独立插件构建与分发打包脚本 (.ttplugin Bundle)
+# Copyright 2026 MetastudyLine. All rights reserved.
+# Proprietary and confidential.
 
 set -euo pipefail
 
@@ -103,19 +102,29 @@ echo "======================================================================"
 echo "✅ 插件包构建成功: ${BUNDLE_DIR}"
 echo "======================================================================"
 
-# 4. 可选自动安装
+# 4. Optional automated installation controlled by flags and environment variables
 if [ "${INSTALL_TO_USER}" = true ]; then
     USER_PLUGINS_DIR="${HOME}/Library/Application Support/TTZip/Plugins"
     mkdir -p "${USER_PLUGINS_DIR}"
     rm -rf "${USER_PLUGINS_DIR}/LarkSync.ttplugin"
     cp -R "${BUNDLE_DIR}" "${USER_PLUGINS_DIR}/"
-    echo "🚀 已成功安装至用户插件目录: ${USER_PLUGINS_DIR}/LarkSync.ttplugin"
+    echo "🚀 Installed to user plugins directory: ${USER_PLUGINS_DIR}/LarkSync.ttplugin"
 fi
 
 if [ "${INSTALL_TO_APP}" = true ]; then
-    APP_PLUGINS_DIR="${REPO_ROOT}/../products/ttzip/apple/dist/TTZip.app/Contents/PlugIns"
-    mkdir -p "${APP_PLUGINS_DIR}"
-    rm -rf "${APP_PLUGINS_DIR}/LarkSync.ttplugin"
-    cp -R "${BUNDLE_DIR}" "${APP_PLUGINS_DIR}/"
-    echo "🚀 已成功安装至 TTZip.app 内置插件目录: ${APP_PLUGINS_DIR}/LarkSync.ttplugin"
+    if [ -n "${TTZIP_APP_DIR:-}" ]; then
+        if [[ "${TTZIP_APP_DIR}" == *".app"* ]]; then
+            APP_PLUGINS_DIR="${TTZIP_APP_DIR}/Contents/PlugIns"
+        elif [ -d "${TTZIP_APP_DIR}/dist/TTZip.app" ]; then
+            APP_PLUGINS_DIR="${TTZIP_APP_DIR}/dist/TTZip.app/Contents/PlugIns"
+        else
+            APP_PLUGINS_DIR="${TTZIP_APP_DIR}/Contents/PlugIns"
+        fi
+        mkdir -p "${APP_PLUGINS_DIR}"
+        rm -rf "${APP_PLUGINS_DIR}/LarkSync.ttplugin"
+        cp -R "${BUNDLE_DIR}" "${APP_PLUGINS_DIR}/"
+        echo "🚀 Installed to TTZip application bundle: ${APP_PLUGINS_DIR}/LarkSync.ttplugin"
+    else
+        echo "⚠️ TTZIP_APP_DIR is not set. Artifact remains hermetically in: ${BUNDLE_DIR}"
+    fi
 fi

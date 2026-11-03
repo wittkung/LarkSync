@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * fileWriteStrategy.ts
  * Frontmatter 保护区写入策略

@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * treeDiffEngine.ts
  * 增量目录树同步引擎 — 逐层浅比对 + 定向递归刷新

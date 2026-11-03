@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * rateLimiter.ts
  * 全局 API 限流器 — 令牌桶算法 + 指数退避 + Jitter

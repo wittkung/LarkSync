@@ -1,8 +1,4 @@
-// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
-//
-// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
-// All rights reserved.
-//
-// LarkSync: Mozilla UniFFI C-ABI anchor.
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
 
 #include "include/larksync_ffiFFI.h"

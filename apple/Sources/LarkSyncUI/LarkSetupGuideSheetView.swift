@@ -1,7 +1,5 @@
-// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
-//
-// Copyright (c) 2026 Witt Kung <witt.w.kung@gmail.com>
-// All rights reserved.
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
 
 import AppKit
 import SwiftUI
@@ -86,7 +84,7 @@ public struct LarkSetupGuideSheetView: View {
             bottomActionBar
         }
         .frame(minWidth: 640, idealWidth: 680, maxWidth: 740, minHeight: 600, idealHeight: 680, maxHeight: 780)
-        .background(TTZipTheme.washiPaper.opacity(0.15))
+        .background(MarkdownTheme.washiPaper.opacity(0.15))
     }
     
     // MARK: - 1. WSJ Editorial Header Bar (52pt)
@@ -97,7 +95,7 @@ public struct LarkSetupGuideSheetView: View {
                     Text("FEISHU OPEN PLATFORM SETUP GUIDE")
                         .font(.system(size: 9, weight: .bold, design: .serif))
                         .tracking(2)
-                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                        .foregroundStyle(MarkdownTheme.kintsugiGold)
                     
                     Text("飞书开放平台配置教学指引")
                         .font(.system(size: 16, weight: .bold, design: .serif))
@@ -110,21 +108,21 @@ public struct LarkSetupGuideSheetView: View {
                 HStack(spacing: 5) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 10))
-                        .foregroundStyle(TTZipTheme.bambooGreen)
+                        .foregroundStyle(MarkdownTheme.bambooGreen)
                     Text("5 步快速开通")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(TTZipTheme.bambooGreen)
+                        .foregroundStyle(MarkdownTheme.bambooGreen)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .background(TTZipTheme.bambooGreen.opacity(0.12))
+                .background(MarkdownTheme.bambooGreen.opacity(0.12))
                 .clipShape(Capsule())
             }
             .padding(.horizontal, 24)
             .frame(height: 52)
             
             Rectangle()
-                .fill(TTZipTheme.kintsugiGold)
+                .fill(MarkdownTheme.kintsugiGold)
                 .frame(height: 1.5)
         }
         .background(Color.primary.opacity(0.02))
@@ -150,12 +148,12 @@ public struct LarkSetupGuideSheetView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
-                    .background(TTZipTheme.kintsugiGold.opacity(0.15))
-                    .foregroundStyle(TTZipTheme.kintsugiGold)
+                    .background(MarkdownTheme.kintsugiGold.opacity(0.15))
+                    .foregroundStyle(MarkdownTheme.kintsugiGold)
                     .clipShape(Capsule())
                     .overlay(
                         Capsule()
-                            .stroke(TTZipTheme.kintsugiGold, lineWidth: 1)
+                            .stroke(MarkdownTheme.kintsugiGold, lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -164,7 +162,7 @@ public struct LarkSetupGuideSheetView: View {
             }
         }
         .padding(18)
-        .ttzipLiquidGlass(cornerRadius: 14)
+        .liquidGlass(cornerRadius: 14)
     }
     
     // MARK: - Step 2: Retrieve App Credentials
@@ -194,7 +192,7 @@ public struct LarkSetupGuideSheetView: View {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "shield.checkered")
                     .font(.system(size: 12))
-                    .foregroundStyle(TTZipTheme.bambooGreen)
+                    .foregroundStyle(MarkdownTheme.bambooGreen)
                     .padding(.top, 1)
                 
                 Text("安全说明：TTZip 原生端会将 App Secret 加密保存在 macOS Keychain 安全钥匙串中，所有网络请求均在本地与飞书 OpenAPI 建立安全信道，严禁提交凭证至公共代码仓库。")
@@ -202,11 +200,11 @@ public struct LarkSetupGuideSheetView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(10)
-            .background(TTZipTheme.bambooGreen.opacity(0.06))
+            .background(MarkdownTheme.bambooGreen.opacity(0.06))
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .padding(18)
-        .ttzipLiquidGlass(cornerRadius: 14)
+        .liquidGlass(cornerRadius: 14)
     }
     
     // MARK: - Step 3: Configure 4 Core Scopes with Copy Interaction
@@ -226,12 +224,12 @@ public struct LarkSetupGuideSheetView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(copiedAllPermissions ? TTZipTheme.bambooGreen.opacity(0.2) : TTZipTheme.kintsugiGold.opacity(0.12))
-                    .foregroundStyle(copiedAllPermissions ? TTZipTheme.bambooGreen : TTZipTheme.kintsugiGold)
+                    .background(copiedAllPermissions ? MarkdownTheme.bambooGreen.opacity(0.2) : MarkdownTheme.kintsugiGold.opacity(0.12))
+                    .foregroundStyle(copiedAllPermissions ? MarkdownTheme.bambooGreen : MarkdownTheme.kintsugiGold)
                     .clipShape(Capsule())
                     .overlay(
                         Capsule()
-                            .stroke(copiedAllPermissions ? TTZipTheme.bambooGreen : TTZipTheme.kintsugiGold, lineWidth: 0.8)
+                            .stroke(copiedAllPermissions ? MarkdownTheme.bambooGreen : MarkdownTheme.kintsugiGold, lineWidth: 0.8)
                     )
                 }
                 .buttonStyle(.plain)
@@ -249,7 +247,7 @@ public struct LarkSetupGuideSheetView: View {
             }
         }
         .padding(18)
-        .ttzipLiquidGlass(cornerRadius: 14)
+        .liquidGlass(cornerRadius: 14)
     }
     
     // MARK: - Step 4: Publish App Version
@@ -266,7 +264,7 @@ public struct LarkSetupGuideSheetView: View {
                 HStack(alignment: .top, spacing: 8) {
                     Text("1.")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                        .foregroundStyle(MarkdownTheme.kintsugiGold)
                     Text("点击左侧导航栏「应用发布」->「版本管理与发布」->「创建版本」。")
                         .font(.system(size: 11))
                         .foregroundStyle(.primary)
@@ -274,7 +272,7 @@ public struct LarkSetupGuideSheetView: View {
                 HStack(alignment: .top, spacing: 8) {
                     Text("2.")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                        .foregroundStyle(MarkdownTheme.kintsugiGold)
                     Text("输入应用版本号（例如 1.0.0）与更新说明，点击「申请发布」。")
                         .font(.system(size: 11))
                         .foregroundStyle(.primary)
@@ -282,7 +280,7 @@ public struct LarkSetupGuideSheetView: View {
                 HStack(alignment: .top, spacing: 8) {
                     Text("3.")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                        .foregroundStyle(MarkdownTheme.kintsugiGold)
                     Text("若企业开启了审批流，请通知企业租户管理员在飞书管理后台通过该应用版本审核。")
                         .font(.system(size: 11))
                         .foregroundStyle(.primary)
@@ -293,7 +291,7 @@ public struct LarkSetupGuideSheetView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .padding(18)
-        .ttzipLiquidGlass(cornerRadius: 14)
+        .liquidGlass(cornerRadius: 14)
     }
     
     // MARK: - Step 5: Space Bot Authorization & Space ID Pitfall Guide
@@ -306,7 +304,7 @@ public struct LarkSetupGuideSheetView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Circle()
-                            .fill(TTZipTheme.kintsugiGold)
+                            .fill(MarkdownTheme.kintsugiGold)
                             .frame(width: 5, height: 5)
                         Text("第一步：将应用机器人添加至知识库空间")
                             .font(.system(size: 12, weight: .bold))
@@ -324,7 +322,7 @@ public struct LarkSetupGuideSheetView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Circle()
-                            .fill(TTZipTheme.kintsugiGold)
+                            .fill(MarkdownTheme.kintsugiGold)
                             .frame(width: 5, height: 5)
                         Text("第二步：如何正确提取 Space ID (数字空间唯一标识)")
                             .font(.system(size: 12, weight: .bold))
@@ -345,7 +343,7 @@ public struct LarkSetupGuideSheetView: View {
                             .foregroundStyle(.secondary)
                         + Text("7201234567890123456")
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundStyle(TTZipTheme.kintsugiGold)
+                            .foregroundStyle(MarkdownTheme.kintsugiGold)
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
@@ -358,13 +356,13 @@ public struct LarkSetupGuideSheetView: View {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "xmark.octagon.fill")
                         .font(.system(size: 12))
-                        .foregroundStyle(TTZipTheme.cinnabarRed)
+                        .foregroundStyle(MarkdownTheme.cinnabarRed)
                         .padding(.top, 1)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text("常见避坑注意点：")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(TTZipTheme.cinnabarRed)
+                            .foregroundStyle(MarkdownTheme.cinnabarRed)
                         Text("1. 绝不要使用单篇文档的 Token (如 wikcnXXXXXX) 代替 Space ID。\n2. 若未将应用添加到空间机器人中，拉取知识库将直接抛出 131005 (Permission Denied) 鉴权错误。")
                             .font(.system(size: 10.5))
                             .foregroundStyle(.secondary)
@@ -372,19 +370,19 @@ public struct LarkSetupGuideSheetView: View {
                     }
                 }
                 .padding(10)
-                .background(TTZipTheme.cinnabarRed.opacity(0.06))
+                .background(MarkdownTheme.cinnabarRed.opacity(0.06))
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
         }
         .padding(18)
-        .ttzipLiquidGlass(cornerRadius: 14)
+        .liquidGlass(cornerRadius: 14)
     }
     
     // MARK: - 3. Bottom Sticky Action Bar
     private var bottomActionBar: some View {
         VStack(spacing: 0) {
             Divider()
-                .overlay(TTZipTheme.hairlineBorder)
+                .overlay(MarkdownTheme.hairlineBorder)
             
             HStack {
                 Text("配置完成后，请返回工作区输入 App ID 与 App Secret 开始增量同步。")
@@ -405,10 +403,10 @@ public struct LarkSetupGuideSheetView: View {
                     }
                     .padding(.horizontal, 22)
                     .padding(.vertical, 8)
-                    .background(TTZipTheme.bambooGreen)
+                    .background(MarkdownTheme.bambooGreen)
                     .foregroundStyle(Color.white)
                     .clipShape(Capsule())
-                    .shadow(color: TTZipTheme.bambooGreen.opacity(0.3), radius: 4, x: 0, y: 2)
+                    .shadow(color: MarkdownTheme.bambooGreen.opacity(0.3), radius: 4, x: 0, y: 2)
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.defaultAction)
@@ -429,15 +427,15 @@ public struct LarkSetupGuideSheetView: View {
                 Text(number)
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
             }
-            .foregroundStyle(TTZipTheme.kintsugiGold)
+            .foregroundStyle(MarkdownTheme.kintsugiGold)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(TTZipTheme.kintsugiGold.opacity(0.12))
+            .background(MarkdownTheme.kintsugiGold.opacity(0.12))
             .clipShape(Capsule())
             
             Image(systemName: icon)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(TTZipTheme.kintsugiGold)
+                .foregroundStyle(MarkdownTheme.kintsugiGold)
             
             Text(title)
                 .font(.system(size: 14, weight: .bold))
@@ -449,7 +447,7 @@ public struct LarkSetupGuideSheetView: View {
         HStack(spacing: 10) {
             Image(systemName: icon)
                 .font(.system(size: 12))
-                .foregroundStyle(TTZipTheme.kintsugiGold)
+                .foregroundStyle(MarkdownTheme.kintsugiGold)
                 .frame(width: 16)
             
             Text(key)
@@ -477,7 +475,7 @@ public struct LarkSetupGuideSheetView: View {
                 HStack(spacing: 6) {
                     Text(item.scope)
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(TTZipTheme.kintsugiGold)
+                        .foregroundStyle(MarkdownTheme.kintsugiGold)
                     
                     Text("• " + item.name)
                         .font(.system(size: 11, weight: .medium))
@@ -502,12 +500,12 @@ public struct LarkSetupGuideSheetView: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(isCopied ? TTZipTheme.bambooGreen.opacity(0.18) : Color.primary.opacity(0.05))
-                .foregroundStyle(isCopied ? TTZipTheme.bambooGreen : .primary)
+                .background(isCopied ? MarkdownTheme.bambooGreen.opacity(0.18) : Color.primary.opacity(0.05))
+                .foregroundStyle(isCopied ? MarkdownTheme.bambooGreen : .primary)
                 .clipShape(Capsule())
                 .overlay(
                     Capsule()
-                        .stroke(isCopied ? TTZipTheme.bambooGreen : Color.primary.opacity(0.12), lineWidth: 0.8)
+                        .stroke(isCopied ? MarkdownTheme.bambooGreen : Color.primary.opacity(0.12), lineWidth: 0.8)
                 )
             }
             .buttonStyle(.plain)

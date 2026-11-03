@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 /**
  * 安装脚本：将打包好的 VSIX 解压到 VS Code 扩展目录
  * 使用方式：npm run deploy（会自动先打包再安装）

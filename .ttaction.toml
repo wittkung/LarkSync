@@ -1,0 +1,33 @@
+[project]
+name = "larksync"
+description = "Feishu/Lark bidirectional knowledge base sync engine & native plugin"
+
+[project.min_tools]
+rustc = "1.80"
+cargo = "1.80"
+swift = "6.0"
+
+[env]
+RUST_BACKTRACE = "1"
+
+[[stage]]
+name = "rust-check"
+description = "Cargo workspace type check"
+run = "cargo check --workspace --all-targets"
+sources = ["crates/**/*.rs", "Cargo.toml", "Cargo.lock"]
+
+[[stage]]
+name = "rust-test"
+description = "Rust workspace test suite"
+run = "cargo test --workspace"
+depends_on = ["rust-check"]
+sources = ["crates/**/*.rs", "Cargo.toml", "Cargo.lock"]
+timeout = 300
+
+[[stage]]
+name = "swift-test"
+description = "Swift package test suite"
+run = "swift test"
+depends_on = ["rust-test"]
+sources = ["apple/**/*.swift", "Package.swift"]
+platforms = ["macos"]

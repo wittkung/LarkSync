@@ -1,7 +1,6 @@
 #!/bin/bash
-# SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
-#
-# LarkSync 工业级 SSOT 一键原子打包、自动签名、哈希同步与自检工具链
+# Copyright 2026 MetastudyLine. All rights reserved.
+# Proprietary and confidential.
 
 set -euo pipefail
 

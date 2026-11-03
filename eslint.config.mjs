@@ -1,3 +1,8 @@
+/**
+ * Copyright 2026 MetastudyLine. All rights reserved.
+ * Proprietary and confidential.
+ */
+
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettierPlugin from 'eslint-plugin-prettier/recommended';

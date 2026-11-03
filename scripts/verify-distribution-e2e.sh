@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright 2026 MetastudyLine. All rights reserved.
+# Proprietary and confidential.
+
 # ==============================================================================
 # scripts/verify-distribution-e2e.sh
 # 生产级云端分发与真实网络连通性 E2E 门禁验证脚本

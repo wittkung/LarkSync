@@ -1,3 +1,6 @@
+// Copyright 2026 MetastudyLine. All rights reserved.
+// Proprietary and confidential.
+
 import { FeishuClient } from '../api/feishuClient';
 import { WikiNode } from '../types';
 import { TreeDiffEngine } from './treeDiffEngine';
